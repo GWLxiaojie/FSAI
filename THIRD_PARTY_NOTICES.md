@@ -5,15 +5,54 @@ They remain separate source checkouts and are not committed to this repository.
 
 ## EUFS repositories
 
-`eufs_sim2`, `state_lib`, `map_lib`, `eufs_msgs`, `eufs_gmock_matchers`, and `eufs_logger` are licensed under MIT.
-Their pinned `LICENSE` files name Edinburgh University Formula Student as the copyright owner.
+### eufs_sim2
 
-- Evidence: the corresponding `license_evidence` URL in `simulator/dependencies.lock.yaml`.
+Revision: `9f5df79a03725ea7d10542fc2ce8224d90836560`.
+License: MIT.
+Copyright owner: Edinburgh University Formula Student.
+Evidence: https://gitlab.com/eufs/public/eufs_sim2/-/blob/9f5df79a03725ea7d10542fc2ce8224d90836560/LICENSE
 
-`vehicle_models` declares MIT in its pinned `package.xml`.
-That metadata identifies Cameron Matthew as maintainer but does not state a copyright owner.
+### vehicle_models
 
-- Evidence: https://gitlab.com/eufs/public/vehicle_models/-/blob/3508bec2c3d77e0ff16f08794675d4f7b52479b7/package.xml#L5-L8
+Revision: `3508bec2c3d77e0ff16f08794675d4f7b52479b7`.
+License: MIT.
+Copyright owner: not stated in pinned package metadata.
+Evidence: https://gitlab.com/eufs/public/vehicle_models/-/blob/3508bec2c3d77e0ff16f08794675d4f7b52479b7/package.xml#L5-L8
+
+### state_lib
+
+Revision: `ec83a141f188e8a4c39a381f4666485d8cc83e20`.
+License: MIT.
+Copyright owner: Edinburgh University Formula Student.
+Evidence: https://gitlab.com/eufs/public/state_lib/-/blob/ec83a141f188e8a4c39a381f4666485d8cc83e20/LICENSE
+
+### map_lib
+
+Revision: `1919b36062850c9ba4553d1833a9b517c61c2e86`.
+License: MIT.
+Copyright owner: Edinburgh University Formula Student.
+Evidence: https://gitlab.com/eufs/public/map_lib/-/blob/1919b36062850c9ba4553d1833a9b517c61c2e86/LICENSE
+
+### eufs_msgs
+
+Revision: `9e918686c9e9292c613f321e6fd85e3a5d87cd87`.
+License: MIT.
+Copyright owner: Edinburgh University Formula Student.
+Evidence: https://gitlab.com/eufs/public/eufs_msgs/-/blob/9e918686c9e9292c613f321e6fd85e3a5d87cd87/LICENSE
+
+### eufs_gmock_matchers
+
+Revision: `7ef83d030746c6a31bcf4f888d4121fcf4b7e8a9`.
+License: MIT.
+Copyright owner: Edinburgh University Formula Student.
+Evidence: https://gitlab.com/eufs/public/eufs-gmock-matchers/-/blob/7ef83d030746c6a31bcf4f888d4121fcf4b7e8a9/LICENSE
+
+### eufs_logger
+
+Revision: `375ea1d8f8885af66809129e444624ba13353fa7`.
+License: MIT.
+Copyright owner: Edinburgh University Formula Student.
+Evidence: https://gitlab.com/eufs/public/eufs-logger/-/blob/375ea1d8f8885af66809129e444624ba13353fa7/LICENSE
 
 ## Open Car Dynamics
 

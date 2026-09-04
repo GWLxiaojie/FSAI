@@ -2,8 +2,6 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-vcstool_bin="$project_root/.superpowers/sdd/2026-09-04-01-workspace-readonly-eufs/venv/bin/vcs"
-python_bin="$project_root/.superpowers/sdd/2026-09-04-01-workspace-readonly-eufs/venv/bin/python"
 manifest="$project_root/simulator/fsai_sim.repos"
 guard="$project_root/tools/prepare_eufs_checkout.sh"
 expected_url="https://gitlab.com/eufs/public/eufs_sim2.git"
@@ -20,9 +18,9 @@ expect_failure() {
   fi
 }
 
-"$vcstool_bin" validate < "$manifest"
+vcs validate < "$manifest"
 
-"$python_bin" - "$manifest" <<'PY'
+python3 - "$manifest" <<'PY'
 import sys
 import yaml
 
@@ -96,6 +94,14 @@ git -C "$test_dir/unprepared-upstream" remote set-url origin "$expected_url"
 git -C "$test_dir/unprepared-upstream" remote rename origin upstream
 expect_failure "$guard" "$test_dir/unprepared-upstream"
 test "$(git -C "$test_dir/unprepared-upstream" remote get-url --push upstream)" = "$expected_url" || fail "unprepared upstream changed unexpectedly"
+
+git clone --quiet "$test_dir/source" "$test_dir/multiple-push-urls"
+git -C "$test_dir/multiple-push-urls" remote set-url origin "$expected_url"
+git -C "$test_dir/multiple-push-urls" remote rename origin upstream
+git -C "$test_dir/multiple-push-urls" remote set-url --push upstream DISABLED
+git -C "$test_dir/multiple-push-urls" remote set-url --add --push upstream https://example.invalid/live-push.git
+expect_failure "$guard" "$test_dir/multiple-push-urls"
+test "$(git -C "$test_dir/multiple-push-urls" remote get-url --push --all upstream | wc -l | tr -d ' ')" = "2" || fail "multiple push URLs changed unexpectedly"
 
 git clone --quiet "$test_dir/source" "$test_dir/dirty"
 git -C "$test_dir/dirty" remote set-url origin "$expected_url"

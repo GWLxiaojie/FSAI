@@ -28,7 +28,10 @@ remotes="$(git -C "$checkout_path" remote)"
 if test "$remotes" = "upstream"; then
   test "$(git -C "$checkout_path" remote get-url upstream)" = "$expected_url" \
     || fail "upstream fetch URL is not the required EUFS URL"
-  test "$(git -C "$checkout_path" remote get-url --push upstream)" = "DISABLED" \
+  push_url_count="$(git -C "$checkout_path" remote get-url --push --all upstream | wc -l | tr -d '[:space:]')"
+  test "$push_url_count" = "1" \
+    || fail "upstream remote has more than one push URL"
+  test "$(git -C "$checkout_path" remote get-url --push --all upstream)" = "DISABLED" \
     || fail "upstream remote has not been prepared for read-only use"
   exit 0
 fi
