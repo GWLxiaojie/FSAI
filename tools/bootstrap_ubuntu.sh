@@ -3,11 +3,14 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
-src_dir="$repo_root/simulator/src"
+src_dir="${FSAI_SIMULATOR_SRC:-$repo_root/simulator/src}"
 repos_file="$repo_root/simulator/fsai_sim.repos"
 lock_file="$repo_root/simulator/dependencies.lock.yaml"
 ros_source_package="ros2-apt-source"
-rosdep_sources="/etc/ros/rosdep/sources.list.d/20-default.list"
+os_release_file="${FSAI_OS_RELEASE_FILE:-/etc/os-release}"
+ros_keyring="${FSAI_ROS_KEYRING:-/usr/share/keyrings/ros2-archive-keyring.gpg}"
+apt_sources_dir="${FSAI_APT_SOURCES_DIR:-/etc/apt/sources.list.d}"
+rosdep_sources="${FSAI_ROSDEP_SOURCES:-/etc/ros/rosdep/sources.list.d/20-default.list}"
 
 usage() {
   printf 'Usage: %s [--help]\n' "${0##*/}"
@@ -27,12 +30,12 @@ if [[ "$#" -ne 0 ]]; then
   exit 2
 fi
 
-if [[ ! -r /etc/os-release ]]; then
+if [[ ! -r "$os_release_file" ]]; then
   fail 'requires Ubuntu 22.04'
 fi
 
 # shellcheck disable=SC1091
-source /etc/os-release
+source "$os_release_file"
 if [[ "${ID:-}" != "ubuntu" || "${VERSION_ID:-}" != "22.04" ]]; then
   fail 'requires Ubuntu 22.04'
 fi
@@ -61,12 +64,11 @@ ros_source_is_configured() {
     --include='*.list' \
     --include='*.sources' \
     'packages.ros.org/ros2/ubuntu' \
-    /etc/apt/sources.list.d
+    "$apt_sources_dir"
 }
 
 ros_key_is_configured() {
-  [[ -f /usr/share/keyrings/ros-archive-keyring.gpg ]] \
-    || [[ -f /usr/share/keyrings/ros2-archive-keyring.gpg ]]
+  [[ -f "$ros_keyring" ]]
 }
 
 sudo apt-get update
@@ -74,8 +76,21 @@ ensure_apt_packages software-properties-common curl
 sudo add-apt-repository --yes universe
 sudo apt-get update
 
-if ! ros_source_is_configured || ! ros_key_is_configured \
-  || ! package_is_installed "$ros_source_package"; then
+source_configured=false
+key_configured=false
+source_package_installed=false
+if ros_source_is_configured; then
+  source_configured=true
+fi
+if ros_key_is_configured; then
+  key_configured=true
+fi
+if package_is_installed "$ros_source_package"; then
+  source_package_installed=true
+fi
+
+if [[ "$source_configured" != true || "$key_configured" != true \
+  || "$source_package_installed" != true ]]; then
   ros_apt_source_version="$(
     curl --fail --silent --show-error \
       https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest \
@@ -83,7 +98,7 @@ if ! ros_source_is_configured || ! ros_key_is_configured \
   )"
   [[ -n "$ros_apt_source_version" ]] || fail 'could not determine ros2-apt-source version'
 
-  ros_source_deb="$(mktemp "${TMPDIR:-/tmp}/ros2-apt-source.XXXXXX.deb")"
+  ros_source_deb="$(mktemp "${TMPDIR:-/tmp}/ros2-apt-source.XXXXXX")"
   trap 'rm -f "$ros_source_deb"' EXIT
   curl --fail --silent --show-error --location \
     --output "$ros_source_deb" \
