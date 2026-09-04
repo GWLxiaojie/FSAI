@@ -1,0 +1,15 @@
+name: jazzy
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    env:
+      ROS_DISTRO: jazzy
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile compatible libraries
+        run: bash tools/ci_jazzy.sh
