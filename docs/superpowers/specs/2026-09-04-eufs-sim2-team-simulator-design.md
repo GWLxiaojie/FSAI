@@ -2,12 +2,13 @@
 
 日期：2026-09-04。
 
-状态：已完成方案讨论，等待最终书面审阅。
+状态：已批准独立项目策略，等待最终书面审阅。
 
 ## 1. 摘要
 
 本项目将基于 EUFS sim2 建设一个不依赖 Isaac Sim 的完整 Formula Student AI 仿真器。
-EUFS sim2 提供 ROS 2 编排、插件生命周期、赛道、比赛状态机和 Foxglove 集成。
+EUFS sim2 作为固定 revision 的只读依赖，提供公开仿真接口、现有插件和行为参考。
+本项目自己的组合节点负责 ROS 2 编排、插件生命周期、运行模式和原子 reset。
 车队自己的车辆动力学、执行器、传感器、参数和接口放在独立模块中。
 车辆状态只能由独立的 C++ plant 推进。
 ROS 2、赛道裁判、传感器和可视化不能反向拥有车辆动力学。
@@ -46,10 +47,16 @@ CI 额外执行 Ubuntu 24.04 和 ROS 2 Jazzy 编译检查，为后续迁移保�
 
 `refs/eufs_sim2` 保持为只读的完整上游参考仓库。
 开发代码不能直接写入 `refs/eufs_sim2`。
-车队应建立自己的 EUFS sim2 fork。
-车队 fork 使用 `origin` 指向车队仓库，并使用 `upstream` 指向 EUFS 官方仓库。
-车队 fork 只包含对通用平台扩展能力的修改。
-车辆参数、传感器参数、车队 ROS 话题和车队 CAN 语义不能写入 EUFS sim2 fork。
+本项目建立独立的 GitHub 仓库，不创建 EUFS sim2 的公开或私有 fork。
+本项目 GitHub 仓库的 `origin` 只指向用户自己的项目仓库。
+任何向用户 GitHub 仓库执行 push 的操作都必须得到用户单独且明确的授权。
+EUFS sim2 通过 `fsai_sim.repos` 下载到工作区，并固定到经过验证的完整 commit。
+下载后的 EUFS sim2 checkout 只能作为构建依赖使用，不能承载本项目修改。
+`simulator/src/eufs_sim2` 是 bootstrap 生成的本地 checkout，并从用户项目的 Git 跟踪中排除。
+EUFS 官方 remote 命名为 `upstream`，只允许 fetch，并将 push URL 设置为无效值 `DISABLED`。
+本项目不向 EUFS 的 GitHub 或 GitLab 执行 push，也不创建 issue、pull request 或 merge request。
+第一版不维护 EUFS 本地 patch。
+如果公开接口被证明无法满足必要需求，必须先更新本设计并获得批准，不能直接修改依赖源码。
 
 建议工作区结构如下。
 
@@ -75,16 +82,20 @@ FSAI/
 `fsai_sim.repos` 固定所有依赖仓库及其提交。
 构建过程不能在没有更新 manifest 的情况下拉取依赖仓库的最新分支。
 EUFS sim2、`vehicle_models`、`state_lib`、`map_lib` 和 `eufs_msgs` 都必须固定 revision。
+用户自己的 GitHub 仓库保存全部车队源码、配置、测试、文档、依赖锁和启动脚本。
+EUFS 源码不复制到用户 GitHub 仓库，但依赖许可证和固定 revision 必须记录在 `THIRD_PARTY_NOTICES.md` 中。
 
-## 5. EUFS sim2 fork 的允许修改
+## 5. EUFS sim2 只读集成方式
 
-fork 增加 `CoreFactory`，用于按配置创建 `EufsCore` 或 `FsaiCoreAdapter`。
-fork 将当前硬编码插件创建逻辑替换为可验证的 `PluginRegistry`。
-fork 将车辆步进与 wall timer 解耦，使实时和无头模式共享相同的核心步进代码。
-fork 为核心接口和插件接口增加显式 schema version。
-fork 恢复自动化测试，并覆盖插件顺序、重置和错误路径。
-fork 保持 EUFS 的 MIT 许可证和版权声明。
-fork 不包含任何特定年份车辆的硬编码物理常数。
+正式运行不使用 EUFS 自带的 `eufs_sim2_node` 作为组合入口。
+`fsai_sim2_adapter` 提供本项目自己的 `FsaiSimulationNode`。
+`FsaiSimulationNode` 使用 EUFS 公开构造函数创建 `SimulationBase`，并注入 `EufsCore` 或 `FsaiCoreAdapter`。
+`CoreFactory`、`PluginRegistry`、可测试 runner 和运行模式全部实现在本项目源码中。
+`FsaiSimulationNode` 可以注册经过选择的 EUFS 公共插件和本项目插件，而不修改 EUFS 插件源码。
+实时模式和无头模式共享同一个 runner，只在 wall clock 节奏上不同。
+reset 在步边界构建并验证完整的新 `SimulationContext`，然后原子替换旧 context。
+替换失败时继续保留旧 context，不能发布部分 reset 状态。
+兼容性测试必须使用固定的原始 `EufsCore` 验证 EUFS 公开接口仍可正常组合。
 
 EUFS sim2 的 `PreUpdate -> Core Step -> PostUpdate` 生命周期作为平台基础保留。
 `PreUpdate` 只允许处理会影响当前步的命令、状态机和赛道控制。
@@ -115,10 +126,12 @@ StepResult update(
 ### 6.2 `fsai_sim2_adapter`
 
 `FsaiCoreAdapter` 实现 EUFS sim2 的核心仿真接口。
-它把 EUFS 控制输入转换为 FSAI `Command`。
+`FsaiSimulationNode` 将车队物理控制命令直接交给 `FsaiCoreAdapter`。
+EUFS 加速度控制输入只在明确启用兼容模式时转换为 FSAI `Command`。
 它调用 `fsai_sim_core` 推进车辆。
 它把 `StepResult` 映射为 EUFS 插件可以读取的车辆状态、轮速和车辆力。
 它不能重新计算轮胎力或覆盖 plant 已接受的状态。
+该 package 同时拥有 `FsaiSimulationNode`、`CoreFactory`、`PluginRegistry`、runner 和原子 context 替换逻辑。
 
 ### 6.3 `fsai_sensor_models`
 
@@ -429,6 +442,7 @@ reset 成功后不能保留上一次运行的可观察状态。
 第一版正式使用 Ubuntu 22.04 和 ROS 2 Humble。
 EUFS adapter 保持 `/cmd`、`eufs_msgs` 和现有状态机接口可用。
 车队 adapter 将来映射车队实际 ROS 2 或 CAN 语义，但不会改变核心 DTO。
+正式 launch 默认启用车队物理命令接口，并要求显式参数才能启用 EUFS 加速度兼容接口。
 
 接口按用途隔离到以下 namespace。
 
@@ -612,8 +626,8 @@ arm64 至少执行依赖解析、编译和核心测试。
 ## 24. 交付顺序
 
 第一步是建立 Ubuntu 22.04 + Humble 的可重复工作区和 CI。
-第二步是使车队 fork 的原始 `EufsCore` 通过完整启动 smoke test。
-第三步是引入 `CoreFactory`、`PluginRegistry` 和可测试 runner。
+第二步是通过只读 EUFS 依赖使原始 `EufsCore` 通过组合入口 smoke test。
+第三步是在 `fsai_sim2_adapter` 中引入 `FsaiSimulationNode`、`CoreFactory`、`PluginRegistry` 和可测试 runner。
 第四步是接入动态自行车 `FsaiCoreAdapter` 与执行器安全链。
 第五步是接入 Ground Truth 历史和第一版传感器。
 第六步是接入 `TrackBundle`、CSV 导入和中心线生成器。
@@ -628,6 +642,8 @@ arm64 至少执行依赖解析、编译和核心测试。
 
 第一版完成必须同时满足以下条件。
 
+- 用户自己的 GitHub 仓库包含车队源码、配置、测试、文档、依赖锁和启动脚本。
+- 全新 Ubuntu 环境克隆用户仓库后可以按固定 revision 获取只读 EUFS 依赖。
 - 一条命令可以在 Ubuntu 22.04 + Humble 上完成依赖安装和构建。
 - 一条命令可以选择车辆和赛道启动仿真。
 - 动态自行车、执行器、安全状态机和传感器全部通过测试。
@@ -641,7 +657,9 @@ arm64 至少执行依赖解析、编译和核心测试。
 
 ## 26. 已确认的设计决定
 
-本项目采用维护型 EUFS sim2 fork，而不是在上游参考目录直接开发。
+本项目采用独立 GitHub 主项目和固定 revision 的只读 EUFS sim2 依赖。
+本项目不创建 EUFS fork，也不向 EUFS 远程发送代码或协作请求。
+正式运行使用本项目自己的 `FsaiSimulationNode`，而不是 EUFS 自带的组合入口。
 车辆核心独立于 ROS 2 和 EUFS sim2。
 第一阶段采用动态自行车，第二阶段升级四轮双轨。
 第一版采用语义级 Camera 和 LiDAR 锥桶观测。
