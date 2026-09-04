@@ -1,1 +1,14 @@
 .worktrees/
+simulator/src/eufs_sim2/
+simulator/src/vehicle_models/
+simulator/src/state_lib/
+simulator/src/map_lib/
+simulator/src/eufs_msgs/
+simulator/src/eufs_gmock_matchers/
+simulator/src/eufs_logger/
+simulator/src/open_car_dynamics/
+build/
+install/
+log/
+artifacts/
+*.mcap

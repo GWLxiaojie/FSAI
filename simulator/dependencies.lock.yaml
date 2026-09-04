@@ -1,0 +1,49 @@
+dependencies:
+  eufs_sim2:
+    url: https://gitlab.com/eufs/public/eufs_sim2.git
+    revision: 9f5df79a03725ea7d10542fc2ce8224d90836560
+    license: MIT
+    copyright_owner: Edinburgh University Formula Student
+    license_evidence: https://gitlab.com/eufs/public/eufs_sim2/-/blob/9f5df79a03725ea7d10542fc2ce8224d90836560/LICENSE
+  vehicle_models:
+    url: https://gitlab.com/eufs/public/vehicle_models.git
+    revision: 3508bec2c3d77e0ff16f08794675d4f7b52479b7
+    license: MIT
+    copyright_owner: not stated in pinned package metadata
+    license_evidence: https://gitlab.com/eufs/public/vehicle_models/-/blob/3508bec2c3d77e0ff16f08794675d4f7b52479b7/package.xml#L8
+  state_lib:
+    url: https://gitlab.com/eufs/public/state_lib.git
+    revision: ec83a141f188e8a4c39a381f4666485d8cc83e20
+    license: MIT
+    copyright_owner: Edinburgh University Formula Student
+    license_evidence: https://gitlab.com/eufs/public/state_lib/-/blob/ec83a141f188e8a4c39a381f4666485d8cc83e20/LICENSE
+  map_lib:
+    url: https://gitlab.com/eufs/public/map_lib.git
+    revision: 1919b36062850c9ba4553d1833a9b517c61c2e86
+    license: MIT
+    copyright_owner: Edinburgh University Formula Student
+    license_evidence: https://gitlab.com/eufs/public/map_lib/-/blob/1919b36062850c9ba4553d1833a9b517c61c2e86/LICENSE
+  eufs_msgs:
+    url: https://gitlab.com/eufs/public/eufs_msgs.git
+    revision: 9e918686c9e9292c613f321e6fd85e3a5d87cd87
+    license: MIT
+    copyright_owner: Edinburgh University Formula Student
+    license_evidence: https://gitlab.com/eufs/public/eufs_msgs/-/blob/9e918686c9e9292c613f321e6fd85e3a5d87cd87/LICENSE
+  eufs_gmock_matchers:
+    url: https://gitlab.com/eufs/public/eufs-gmock-matchers.git
+    revision: 7ef83d030746c6a31bcf4f888d4121fcf4b7e8a9
+    license: MIT
+    copyright_owner: Edinburgh University Formula Student
+    license_evidence: https://gitlab.com/eufs/public/eufs-gmock-matchers/-/blob/7ef83d030746c6a31bcf4f888d4121fcf4b7e8a9/LICENSE
+  eufs_logger:
+    url: https://gitlab.com/eufs/public/eufs-logger.git
+    revision: 375ea1d8f8885af66809129e444624ba13353fa7
+    license: MIT
+    copyright_owner: Edinburgh University Formula Student
+    license_evidence: https://gitlab.com/eufs/public/eufs-logger/-/blob/375ea1d8f8885af66809129e444624ba13353fa7/LICENSE
+  open_car_dynamics:
+    url: https://github.com/TUMFTM/Open-Car-Dynamics.git
+    revision: 94f8fb187fb0ed22bba1d809bd74f66d1ff75af4
+    license: Apache-2.0
+    copyright_owner: not stated in pinned LICENSE
+    license_evidence: https://github.com/TUMFTM/Open-Car-Dynamics/blob/94f8fb187fb0ed22bba1d809bd74f66d1ff75af4/LICENSE
