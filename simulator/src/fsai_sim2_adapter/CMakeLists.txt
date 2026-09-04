@@ -16,6 +16,8 @@ find_package(rosgraph_msgs REQUIRED)
 find_package(vehicle_models REQUIRED)
 
 add_library(${PROJECT_NAME}
+  src/core_factory.cpp
+  src/plugin_registry.cpp
   src/simulation_node.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC
@@ -64,6 +66,20 @@ if(BUILD_TESTING)
   ament_target_dependencies(eufs_core_composition_test
     eufs_sim2
     vehicle_models
+  )
+
+  ament_add_gtest(core_factory_test
+    test/core_factory_test.cpp
+  )
+  target_link_libraries(core_factory_test
+    ${PROJECT_NAME}
+  )
+
+  ament_add_gtest(plugin_registry_test
+    test/plugin_registry_test.cpp
+  )
+  target_link_libraries(plugin_registry_test
+    ${PROJECT_NAME}
   )
 endif()
 

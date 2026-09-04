@@ -26,13 +26,71 @@
 
 namespace fsai::sim2_adapter {
 
+void RegisterDefaultComposition(CoreFactory &cores, PluginRegistry &plugins) {
+  cores.Register("eufs", [](const CoreConfig &config) {
+    eufs::vehicle_models::Param params;
+    params.SetFromYaml(config.parameter_file.string());
+    return std::make_unique<eufs::sim2::core::EufsCore>(params);
+  });
+
+  plugins.Register("track_changer_plugin", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::TrackChangerPlugin>(std::move(name));
+  });
+  plugins.Register("control_input", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::ControlInputPlugin>(std::move(name));
+  });
+  plugins.Register("state_machine", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::StateMachinePlugin>(std::move(name));
+  });
+  plugins.Register("vehicle_state_plugin", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::VehicleStatePlugin>(std::move(name));
+  });
+  plugins.Register("wheel_speed_plugin", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::WheelSpeedPlugin>(std::move(name), "/wheel_speed");
+  });
+  plugins.Register("gnss_plugin", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::GNSSPlugin>(std::move(name));
+  });
+  plugins.Register("oss_plugin", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::OSSPlugin>(std::move(name), "/oss/data");
+  });
+  plugins.Register("imu_plugin", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::IMUPlugin>(std::move(name), "/imu/data");
+  });
+  plugins.Register("state_publisher", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::StatePublisherPlugin>(std::move(name));
+  });
+  plugins.Register("gt_transform", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::GTTransform>(std::move(name));
+  });
+  plugins.Register("force_publisher", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::ForcePublisher>(std::move(name));
+  });
+  plugins.Register("twist_publisher", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::TwistPublisher>(std::move(name));
+  });
+  plugins.Register("cone_fusion", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::ConeFusion>(std::move(name));
+  });
+  plugins.Register("cone_collision_tracker", [](std::string name) {
+    return std::make_unique<eufs::sim2::plugin::ConeCollisionTracker>(std::move(name));
+  });
+}
+
 FsaiSimulationNode::FsaiSimulationNode()
     : rclcpp::Node("eufs_sim2") {
-  const auto core_params = declare_parameter<std::string>("core_params");
+  RegisterDefaultComposition(core_factory_, plugin_registry_);
 
-  eufs::vehicle_models::Param params;
-  params.SetFromYaml(core_params);
-  auto core = std::make_unique<eufs::sim2::core::EufsCore>(params);
+  const auto core_params = declare_parameter<std::string>("core_params");
+  declare_parameter<std::vector<std::string>>("plugin_names");
+  plugin_names_ = get_parameter("plugin_names").get_value<std::vector<std::string>>();
+  for (const auto &name : plugin_names_) {
+    plugin_registry_.Validate(name);
+  }
+
+  auto core = core_factory_.Create(
+    "eufs",
+    CoreConfig{.parameter_file = core_params});
   simulation_ = std::make_shared<eufs::sim2::SimulationBase>(std::move(core));
 
   clock_publisher_ = create_publisher<rosgraph_msgs::msg::Clock>("/clock", 1);
@@ -40,68 +98,12 @@ FsaiSimulationNode::FsaiSimulationNode()
 }
 
 void FsaiSimulationNode::InitialisePlugins() {
-  declare_parameter<std::vector<std::string>>("plugin_names");
-  const auto plugin_names =
-    get_parameter("plugin_names").get_value<std::vector<std::string>>();
-
-  for (const auto &name : plugin_names) {
-    auto plugin = CreatePlugin(name);
-    if (!plugin) {
-      RCLCPP_ERROR(get_logger(), "Unknown EUFS plugin: %s", name.c_str());
-      continue;
-    }
-
+  for (const auto &name : plugin_names_) {
+    auto plugin = plugin_registry_.Create(name);
     plugin->SetupROS(shared_from_this());
     plugin->CreateSensorFailureService(name);
     simulation_->RegisterPlugin(std::move(plugin));
   }
-}
-
-std::unique_ptr<eufs::sim2::plugin::Plugin> FsaiSimulationNode::CreatePlugin(
-    const std::string &name) {
-  if (name.starts_with("track_changer_plugin")) {
-    return std::make_unique<eufs::sim2::plugin::TrackChangerPlugin>(name);
-  }
-  if (name.starts_with("control_input")) {
-    return std::make_unique<eufs::sim2::plugin::ControlInputPlugin>(name);
-  }
-  if (name.starts_with("state_machine")) {
-    return std::make_unique<eufs::sim2::plugin::StateMachinePlugin>(name);
-  }
-  if (name.starts_with("vehicle_state_plugin")) {
-    return std::make_unique<eufs::sim2::plugin::VehicleStatePlugin>(name);
-  }
-  if (name.starts_with("wheel_speed_plugin")) {
-    return std::make_unique<eufs::sim2::plugin::WheelSpeedPlugin>(name, "/wheel_speed");
-  }
-  if (name.starts_with("gnss_plugin")) {
-    return std::make_unique<eufs::sim2::plugin::GNSSPlugin>(name);
-  }
-  if (name.starts_with("oss_plugin")) {
-    return std::make_unique<eufs::sim2::plugin::OSSPlugin>(name, "/oss/data");
-  }
-  if (name.starts_with("imu_plugin")) {
-    return std::make_unique<eufs::sim2::plugin::IMUPlugin>(name, "/imu/data");
-  }
-  if (name.starts_with("state_publisher")) {
-    return std::make_unique<eufs::sim2::plugin::StatePublisherPlugin>(name);
-  }
-  if (name.starts_with("gt_transform")) {
-    return std::make_unique<eufs::sim2::plugin::GTTransform>(name);
-  }
-  if (name.starts_with("force_publisher")) {
-    return std::make_unique<eufs::sim2::plugin::ForcePublisher>(name);
-  }
-  if (name.starts_with("twist_publisher")) {
-    return std::make_unique<eufs::sim2::plugin::TwistPublisher>(name);
-  }
-  if (name.starts_with("cone_fusion")) {
-    return std::make_unique<eufs::sim2::plugin::ConeFusion>(name);
-  }
-  if (name.starts_with("cone_collision_tracker")) {
-    return std::make_unique<eufs::sim2::plugin::ConeCollisionTracker>(name);
-  }
-  return nullptr;
 }
 
 void FsaiSimulationNode::Step() {
