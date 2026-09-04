@@ -42,6 +42,12 @@ Team plant:
 ros2 launch fsai_bringup simulator.launch.py vehicle:=reference_bicycle core_type:=fsai run_mode:=realtime
 ```
 
+Drive command:
+
+```bash
+ros2 topic pub /fsai/actuation_command fsai_interfaces/msg/ActuationCommand "{rear_axle_torque_nm: 80.0, friction_brake_ratio: 0.0}"
+```
+
 ## macOS
 
 ROS 2 Humble is not required here.

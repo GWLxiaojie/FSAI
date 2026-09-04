@@ -11,6 +11,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>eufs_sim2</depend>
+  <depend>fsai_interfaces</depend>
   <depend>fsai_sim_core</depend>
   <depend>rclcpp</depend>
   <depend>rosgraph_msgs</depend>

@@ -10,6 +10,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
 
+#include "fsai_interfaces/msg/actuation_command.hpp"
+
 #include "eufs_sim2/simulation.hpp"
 #include "fsai_sim2_adapter/core_factory.hpp"
 #include "fsai_sim2_adapter/plugin_registry.hpp"
@@ -28,6 +30,7 @@ class FsaiSimulationNode : public rclcpp::Node {
 
  private:
   void Step();
+  void OnActuation(const fsai_interfaces::msg::ActuationCommand &message);
 
   static constexpr std::chrono::milliseconds kSimulationStep{5};
 
@@ -39,6 +42,8 @@ class FsaiSimulationNode : public rclcpp::Node {
   std::size_t max_steps_{0};
   std::size_t steps_taken_{0};
   rclcpp::Publisher<rosgraph_msgs::msg::Clock>::SharedPtr clock_publisher_;
+  rclcpp::Subscription<fsai_interfaces::msg::ActuationCommand>::SharedPtr
+    actuation_subscription_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
 

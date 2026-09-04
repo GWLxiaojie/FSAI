@@ -11,6 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(ament_cmake REQUIRED)
 find_package(eufs_sim2 REQUIRED)
+find_package(fsai_interfaces REQUIRED)
 find_package(fsai_sim_core REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rosgraph_msgs REQUIRED)
@@ -32,6 +33,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 )
 ament_target_dependencies(${PROJECT_NAME} PUBLIC
   eufs_sim2
+  fsai_interfaces
   fsai_sim_core
   rclcpp
   rosgraph_msgs
@@ -66,7 +68,7 @@ install(
 )
 
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
-ament_export_dependencies(eufs_sim2 fsai_sim_core rclcpp rosgraph_msgs vehicle_models yaml-cpp)
+ament_export_dependencies(eufs_sim2 fsai_interfaces fsai_sim_core rclcpp rosgraph_msgs vehicle_models yaml-cpp)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)

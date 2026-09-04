@@ -6,6 +6,8 @@
 #include <utility>
 #include <vector>
 
+#include "fsai_sim_core/types.hpp"
+
 #include "eufs_sim2/core/eufs_core.hpp"
 #include "fsai_sim2_adapter/fsai_core_adapter.hpp"
 #include "fsai_sim2_adapter/vehicle_profile_loader.hpp"
@@ -112,10 +114,29 @@ FsaiSimulationNode::FsaiSimulationNode()
   context_ = std::make_unique<ContextOwner>(std::move(context));
 
   clock_publisher_ = create_publisher<rosgraph_msgs::msg::Clock>("/clock", 1);
+  actuation_subscription_ = create_subscription<fsai_interfaces::msg::ActuationCommand>(
+    "/fsai/actuation_command",
+    10,
+    std::bind(&FsaiSimulationNode::OnActuation, this, std::placeholders::_1));
   const auto wall_period = (run_mode_ == RunMode::kAsFastAsPossible)
                              ? std::chrono::nanoseconds(1)
                              : std::chrono::nanoseconds(kSimulationStep);
   timer_ = create_wall_timer(wall_period, std::bind(&FsaiSimulationNode::Step, this));
+}
+
+void FsaiSimulationNode::OnActuation(
+  const fsai_interfaces::msg::ActuationCommand &message) {
+  auto *adapter = dynamic_cast<FsaiCoreAdapter *>(
+    &context_->Current().simulation->GetCore());
+  if (adapter == nullptr) {
+    return;
+  }
+  fsai::sim::Command command;
+  command.steering_angle_rad = message.steering_angle_rad;
+  command.front_axle_torque_nm = message.front_axle_torque_nm;
+  command.rear_axle_torque_nm = message.rear_axle_torque_nm;
+  command.friction_brake_ratio = message.friction_brake_ratio;
+  adapter->SetPhysicalCommand(command);
 }
 
 void FsaiSimulationNode::InitialisePlugins() {
