@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>fsai_sim_core</name>
+  <version>0.1.0</version>
+  <description>ROS-free FSAI vehicle plant, actuators and hybrid integrator.</description>
+  <maintainer email="AlvinMuhanYu@outlook.com">Muhan Yu</maintainer>
+  <license>Proprietary</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <build_depend>libssl-dev</build_depend>
+  <build_depend>libeigen3-dev</build_depend>
+  <depend>libssl-dev</depend>
+  <depend>libeigen3-dev</depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
