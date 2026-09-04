@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<robot name="fsai_reference_bicycle">
+  <link name="base_footprint">
+    <visual>
+      <geometry>
+        <box size="1.53 1.2 0.3"/>
+      </geometry>
+      <material name="red">
+        <color rgba="0.8 0.1 0.1 1"/>
+      </material>
+    </visual>
+  </link>
+</robot>

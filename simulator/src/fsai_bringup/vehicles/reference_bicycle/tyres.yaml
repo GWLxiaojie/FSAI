@@ -1,0 +1,70 @@
+effective_tyre_radius_m:
+  value: 0.2525
+  unit: m
+  source: eufs_ads_dv_calculated
+  valid_min: 0.1
+  valid_max: 0.4
+  calibration_status: reference_unvalidated
+rolling_resistance:
+  value: 0.02
+  unit: 1
+  source: eufs_ads_dv_calculated
+  valid_min: 0.0
+  valid_max: 0.1
+  calibration_status: reference_unvalidated
+pacejka_B_front:
+  value: 12.56
+  unit: 1/rad
+  source: eufs_ads_dv_calculated
+  valid_min: 1.0
+  valid_max: 40.0
+  calibration_status: reference_unvalidated
+pacejka_C_front:
+  value: 1.4
+  unit: 1
+  source: eufs_ads_dv_calculated
+  valid_min: 0.5
+  valid_max: 3.0
+  calibration_status: reference_unvalidated
+pacejka_D_front:
+  value: 1.0
+  unit: 1
+  source: eufs_ads_dv_calculated
+  valid_min: 0.1
+  valid_max: 2.0
+  calibration_status: reference_unvalidated
+pacejka_E_front:
+  value: 0.0
+  unit: 1
+  source: phase_one_reference
+  valid_min: -2.0
+  valid_max: 2.0
+  calibration_status: reference_unvalidated
+pacejka_B_rear:
+  value: 12.56
+  unit: 1/rad
+  source: eufs_ads_dv_calculated
+  valid_min: 1.0
+  valid_max: 40.0
+  calibration_status: reference_unvalidated
+pacejka_C_rear:
+  value: 1.4
+  unit: 1
+  source: eufs_ads_dv_calculated
+  valid_min: 0.5
+  valid_max: 3.0
+  calibration_status: reference_unvalidated
+pacejka_D_rear:
+  value: 1.0
+  unit: 1
+  source: eufs_ads_dv_calculated
+  valid_min: 0.1
+  valid_max: 2.0
+  calibration_status: reference_unvalidated
+pacejka_E_rear:
+  value: 0.0
+  unit: 1
+  source: phase_one_reference
+  valid_min: -2.0
+  valid_max: 2.0
+  calibration_status: reference_unvalidated

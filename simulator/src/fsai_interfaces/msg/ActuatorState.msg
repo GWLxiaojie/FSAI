@@ -1,0 +1,8 @@
+builtin_interfaces/Time stamp
+float64 steering_angle_rad
+float64 front_axle_torque_nm
+float64 rear_axle_torque_nm
+float64 friction_brake_ratio
+float64 u_mps
+float64 v_mps
+float64 yaw_rate_radps

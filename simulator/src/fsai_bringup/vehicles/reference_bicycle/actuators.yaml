@@ -1,0 +1,49 @@
+max_steering_angle_rad:
+  value: 0.384
+  unit: rad
+  source: eufs_ads_dv_calculated
+  valid_min: 0.1
+  valid_max: 1.0
+  calibration_status: reference_unvalidated
+max_steering_rate_radps:
+  value: 0.39
+  unit: rad/s
+  source: eufs_ads_dv_calculated
+  valid_min: 0.1
+  valid_max: 5.0
+  calibration_status: reference_unvalidated
+max_front_axle_torque_nm:
+  value: 0.0
+  unit: N m
+  source: derived_rwd
+  valid_min: 0.0
+  valid_max: 1000.0
+  calibration_status: reference_unvalidated
+max_rear_axle_torque_nm:
+  value: 393.9
+  unit: N m
+  source: derived_from_5_2_mps2
+  valid_min: 0.0
+  valid_max: 1000.0
+  calibration_status: reference_unvalidated
+max_brake_torque_nm:
+  value: 393.9
+  unit: N m
+  source: derived_from_5_2_mps2
+  valid_min: 0.0
+  valid_max: 2000.0
+  calibration_status: reference_unvalidated
+timeout_brake_ratio:
+  value: 0.5
+  unit: 1
+  source: safety_contract
+  valid_min: 0.0
+  valid_max: 1.0
+  calibration_status: reference_unvalidated
+ebs_brake_ratio:
+  value: 1.0
+  unit: 1
+  source: safety_contract
+  valid_min: 0.0
+  valid_max: 1.0
+  calibration_status: reference_unvalidated

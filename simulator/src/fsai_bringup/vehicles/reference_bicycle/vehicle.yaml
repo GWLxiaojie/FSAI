@@ -1,0 +1,50 @@
+schema_version: 1
+mass_kg:
+  value: 300.0
+  unit: kg
+  source: eufs_ads_dv_calculated
+  valid_min: 50.0
+  valid_max: 800.0
+  calibration_status: reference_unvalidated
+gravity_mps2:
+  value: 9.81
+  unit: m/s^2
+  source: eufs_ads_dv_calculated
+  valid_min: 9.0
+  valid_max: 10.0
+  calibration_status: reference_unvalidated
+yaw_inertia_kgm2:
+  value: 172.44
+  unit: kg m^2
+  source: eufs_ads_dv_calculated
+  valid_min: 50.0
+  valid_max: 400.0
+  calibration_status: reference_unvalidated
+wheelbase_m:
+  value: 1.53
+  unit: m
+  source: eufs_ads_dv_calculated
+  valid_min: 1.0
+  valid_max: 3.0
+  calibration_status: reference_unvalidated
+front_static_load_fraction:
+  value: 0.5
+  unit: 1
+  source: eufs_ads_dv_calculated
+  valid_min: 0.3
+  valid_max: 0.7
+  calibration_status: reference_unvalidated
+front_track_m:
+  value: 1.2
+  unit: m
+  source: eufs_ads_dv_calculated
+  valid_min: 0.8
+  valid_max: 2.0
+  calibration_status: reference_unvalidated
+rear_track_m:
+  value: 1.2
+  unit: m
+  source: eufs_ads_dv_calculated
+  valid_min: 0.8
+  valid_max: 2.0
+  calibration_status: reference_unvalidated

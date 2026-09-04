@@ -1,7 +1,8 @@
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-from launch.substitutions import PathJoinSubstitution
 
 
 def generate_launch_description():
@@ -16,13 +17,23 @@ def generate_launch_description():
     plugin_params = PathJoinSubstitution(
         [FindPackageShare("eufs_sim2"), "config", "plugin_params.yaml"]
     )
+    run_mode = LaunchConfiguration("run_mode")
+    max_steps = LaunchConfiguration("max_steps")
 
     simulation = Node(
         package="fsai_sim2_adapter",
         executable="fsai_simulation_node",
         name="eufs_sim2",
         output="screen",
-        parameters=[{"core_params": core_params}, plugin_params],
+        parameters=[
+            {
+                "core_type": "eufs",
+                "core_params": core_params,
+                "run_mode": run_mode,
+                "max_steps": max_steps,
+            },
+            plugin_params,
+        ],
         remappings=[
             ("/plugin/cone_fusion/gt_cones", "/cones/lenient"),
             ("/plugin/cone_fusion/cones", "/cones"),
@@ -40,4 +51,10 @@ def generate_launch_description():
         ],
     )
 
-    return LaunchDescription([simulation])
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument("run_mode", default_value="realtime"),
+            DeclareLaunchArgument("max_steps", default_value="0"),
+            simulation,
+        ]
+    )

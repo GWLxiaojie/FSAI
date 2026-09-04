@@ -7,6 +7,8 @@
 #include <vector>
 
 #include "eufs_sim2/core/eufs_core.hpp"
+#include "fsai_sim2_adapter/fsai_core_adapter.hpp"
+#include "fsai_sim2_adapter/vehicle_profile_loader.hpp"
 #include "eufs_sim2/plugin/cone_collision_tracker.hpp"
 #include "eufs_sim2/plugin/cone_fusion.hpp"
 #include "eufs_sim2/plugin/control_input.hpp"
@@ -31,6 +33,10 @@ void RegisterDefaultComposition(CoreFactory &cores, PluginRegistry &plugins) {
     eufs::vehicle_models::Param params;
     params.SetFromYaml(config.parameter_file.string());
     return std::make_unique<eufs::sim2::core::EufsCore>(params);
+  });
+  cores.Register("fsai", [](const CoreConfig &config) {
+    auto parameters = LoadVehicleProfile(config.parameter_file);
+    return std::make_unique<FsaiCoreAdapter>(std::move(parameters));
   });
 
   plugins.Register("track_changer_plugin", [](std::string name) {
@@ -81,20 +87,35 @@ FsaiSimulationNode::FsaiSimulationNode()
     : rclcpp::Node("eufs_sim2") {
   RegisterDefaultComposition(core_factory_, plugin_registry_);
 
+  const auto core_type = declare_parameter<std::string>("core_type", "fsai");
   const auto core_params = declare_parameter<std::string>("core_params");
+  declare_parameter<std::string>("track", "");
+  declare_parameter<std::string>("scenario", "");
+  const auto run_mode_name = declare_parameter<std::string>("run_mode", "realtime");
+  max_steps_ = static_cast<std::size_t>(declare_parameter<int>("max_steps", 0));
+  run_mode_ = ParseRunMode(run_mode_name);
+
   declare_parameter<std::vector<std::string>>("plugin_names");
   plugin_names_ = get_parameter("plugin_names").get_value<std::vector<std::string>>();
   for (const auto &name : plugin_names_) {
     plugin_registry_.Validate(name);
   }
 
-  auto core = core_factory_.Create(
-    "eufs",
-    CoreConfig{.parameter_file = core_params});
-  simulation_ = std::make_shared<eufs::sim2::SimulationBase>(std::move(core));
+  SimulationContextFactory factory;
+  auto context = factory.Create(
+    core_factory_,
+    plugin_registry_,
+    core_type,
+    CoreConfig{.parameter_file = core_params},
+    eufs::sim2::time::Duration{static_cast<std::size_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(kSimulationStep).count())});
+  context_ = std::make_unique<ContextOwner>(std::move(context));
 
   clock_publisher_ = create_publisher<rosgraph_msgs::msg::Clock>("/clock", 1);
-  timer_ = create_wall_timer(kSimulationStep, std::bind(&FsaiSimulationNode::Step, this));
+  const auto wall_period = (run_mode_ == RunMode::kAsFastAsPossible)
+                             ? std::chrono::nanoseconds(1)
+                             : std::chrono::nanoseconds(kSimulationStep);
+  timer_ = create_wall_timer(wall_period, std::bind(&FsaiSimulationNode::Step, this));
 }
 
 void FsaiSimulationNode::InitialisePlugins() {
@@ -102,14 +123,18 @@ void FsaiSimulationNode::InitialisePlugins() {
     auto plugin = plugin_registry_.Create(name);
     plugin->SetupROS(shared_from_this());
     plugin->CreateSensorFailureService(name);
-    simulation_->RegisterPlugin(std::move(plugin));
+    context_->Current().simulation->RegisterPlugin(std::move(plugin));
   }
 }
 
 void FsaiSimulationNode::Step() {
-  simulation_->Step(kSimulationStep);
+  context_->Current().runner->StepOnce();
+  ++steps_taken_;
   clock_publisher_->publish(
-    eufs::sim2::time::TimeToClockMsg(simulation_->GetCore().GetTime()));
+    eufs::sim2::time::TimeToClockMsg(context_->Current().simulation->GetCore().GetTime()));
+  if (max_steps_ > 0 && steps_taken_ >= max_steps_) {
+    rclcpp::shutdown();
+  }
 }
 
 }  // namespace fsai::sim2_adapter

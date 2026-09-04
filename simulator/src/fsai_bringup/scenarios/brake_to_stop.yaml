@@ -1,0 +1,11 @@
+schema_version: 1
+name: brake_to_stop
+mission: manual
+vehicle_profile: reference_bicycle
+track_bundle: skidpad_small
+seed: 1
+duration_limit_s: 20
+mode: as_fast_as_possible
+plant_step_ms: 1
+outer_step_ms: 5
+target_laps: 1
