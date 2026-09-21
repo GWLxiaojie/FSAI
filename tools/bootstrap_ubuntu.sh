@@ -159,4 +159,4 @@ rosdep update --rosdistro humble
 package_paths="$(colcon list --base-paths "$src_dir" --packages-up-to fsai_bringup --paths-only)"
 [[ -n "$package_paths" ]] || fail 'no runtime packages found'
 mapfile -t runtime_paths <<< "$package_paths"
-rosdep install --from-paths "${runtime_paths[@]}" --ignore-src --recursive --yes --rosdistro humble
+rosdep install --from-paths "${runtime_paths[@]}" --ignore-src --default-yes --rosdistro humble

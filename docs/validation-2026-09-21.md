@@ -71,8 +71,10 @@ ADS-DV官方文档确认轴距1.53m、前后轮距1.20m和后驱布局。
 下载内容的SHA256与官方软件包索引一致；该目录被git忽略，不混入源码或上游checkout。
 入口脚本自动识别这一可选本地prefix，当前目录可直接启动。
 新机器正常执行bootstrap/rosdep安装；录制额外需要 `ros-humble-rosbag2-storage-mcap`。
-本轮未在空白VM重新执行sudo bootstrap，未实际执行Jazzy或GitHub远端CI。
-Jazzy工作流已改为真实安装并编译测试核心，但不代表完整Jazzy运行支持。
+本机未在空白VM执行sudo bootstrap；发布后通过GitHub Actions的全新Ubuntu镜像验证安装链。
+远端检查额外修复了ROS软件源符号链接识别、rosdep不支持的旧选项，以及Eigen的rosdep键。
+Jazzy工作流已在GitHub完成真实安装、核心编译和测试，但不代表完整Jazzy运行支持。
+最新Humble运行状态以[该分支的GitHub Actions](https://github.com/GWLxiaojie/FSAI/actions?query=branch%3Afix%2Fhumble-simulator)为准。
 Qt offscreen不支持此RViz/GLX窗口路径；使用图形会话的xcb模式启动成功。
 
 ## 复现

@@ -8,6 +8,11 @@ test_command="$repo_root/tools/test.sh"
 run_sim="$repo_root/tools/run_sim.sh"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
+# Validate the real rosdep option parser without installing anything. Keep this
+# optional so the portable script-contract tests can also run without ROS.
+FSAI_REAL_ROSDEP="$(command -v rosdep || true)"
+FSAI_REAL_PATH="$PATH"
+export FSAI_REAL_ROSDEP FSAI_REAL_PATH
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -163,6 +168,7 @@ make_bootstrap_fakes() {
     '  printf '\'' %q'\'' "$argument" >>"$FSAI_COMMAND_LOG"' \
     'done' \
     'printf '\''\n'\'' >>"$FSAI_COMMAND_LOG"' \
+    'if [[ -n "$FSAI_REAL_ROSDEP" ]]; then PATH="$FSAI_REAL_PATH" "$FSAI_REAL_ROSDEP" "$@" --help >/dev/null; fi' \
     >"$fake_bin/rosdep"
   chmod +x "$fake_bin/rosdep"
 
@@ -333,7 +339,7 @@ git -C $simulator_src/eufs_sim2 remote set-url --push upstream DISABLED
 sudo rosdep init
 rosdep update --rosdistro humble
 colcon list --base-paths $simulator_src --packages-up-to fsai_bringup --paths-only
-rosdep install --from-paths $simulator_src --ignore-src --recursive --yes --rosdistro humble"
+rosdep install --from-paths $simulator_src --ignore-src --default-yes --rosdistro humble"
 
 : >"$command_log"
 (
@@ -403,7 +409,7 @@ git -C $simulator_src/eufs_sim2 remote get-url --push --all upstream
 git -C $simulator_src/eufs_sim2 remote get-url --push --all upstream
 rosdep update --rosdistro humble
 colcon list --base-paths $simulator_src --packages-up-to fsai_bringup --paths-only
-rosdep install --from-paths $simulator_src --ignore-src --recursive --yes --rosdistro humble"
+rosdep install --from-paths $simulator_src --ignore-src --default-yes --rosdistro humble"
 
 : >"$command_log"
 (
