@@ -54,6 +54,15 @@ License: MIT.
 Copyright owner: Edinburgh University Formula Student.
 Evidence: https://gitlab.com/eufs/public/eufs-logger/-/blob/375ea1d8f8885af66809129e444624ba13353fa7/LICENSE
 
+## pybind11_conversions
+
+Revision: `6c97133c717133b9c8f2ab42c602677b36a9a658` (upstream master, not its stale default branch).
+License: not declared at this pinned revision; package metadata contains a TODO placeholder.
+Copyright owner: not stated in pinned package metadata.
+Required by the pinned map_lib Python bindings.
+Source remains a separate checkout and is not redistributed in this repository.
+Evidence: https://gitlab.com/eufs/public/pybind11_conversions/-/blob/6c97133c717133b9c8f2ab42c602677b36a9a658/package.xml
+
 ## Open Car Dynamics
 
 `open_car_dynamics` is licensed under Apache-2.0 at revision `94f8fb187fb0ed22bba1d809bd74f66d1ff75af4`.

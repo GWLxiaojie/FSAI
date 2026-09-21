@@ -1,0 +1,4 @@
+physical_command_topic: /fsai/actuation_command
+enable_eufs_acceleration_compatibility: false
+command_timeout_s: 0.1
+sequence_policy: monotonic

@@ -19,6 +19,10 @@ GroundTruth BuildGroundTruth(
   }
   truth.front_lateral_force_n = evaluation.front_lateral_force_n;
   truth.rear_lateral_force_n = evaluation.rear_lateral_force_n;
+  truth.front_longitudinal_force_n = evaluation.front_longitudinal_force_n;
+  truth.rear_longitudinal_force_n = evaluation.rear_longitudinal_force_n;
+  truth.front_normal_force_n = evaluation.front_normal_force_n;
+  truth.rear_normal_force_n = evaluation.rear_normal_force_n;
   return truth;
 }
 

@@ -1,5 +1,6 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, RegisterEventHandler
+from launch.event_handlers import OnProcessExit
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -51,10 +52,16 @@ def generate_launch_description():
         ],
     )
 
+    def on_simulation_exit(event, _context):
+        if event.returncode != 0:
+            raise RuntimeError(f"Compatibility simulation failed with exit code {event.returncode}")
+        return []
+
     return LaunchDescription(
         [
             DeclareLaunchArgument("run_mode", default_value="realtime"),
             DeclareLaunchArgument("max_steps", default_value="0"),
             simulation,
+            RegisterEventHandler(OnProcessExit(target_action=simulation, on_exit=on_simulation_exit)),
         ]
     )

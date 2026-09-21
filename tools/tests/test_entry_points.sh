@@ -54,6 +54,8 @@ make_fake_commands() {
     '  printf '\'' %q'\'' "$argument" >>"$FSAI_COMMAND_LOG"' \
     'done' \
     'printf '\''\n'\'' >>"$FSAI_COMMAND_LOG"' \
+    '[[ "${1:-}" == "--log-base" ]] && shift 2' \
+    'if [[ "${1:-}" == "list" ]]; then printf '\''%s\n'\'' "$FSAI_SIMULATOR_SRC"; fi' \
     'if [[ "${1:-}" == "test" && "${FSAI_FAKE_COLCON_TEST_STATUS:-0}" != "0" ]]; then' \
     '  exit "$FSAI_FAKE_COLCON_TEST_STATUS"' \
     'fi' \
@@ -121,7 +123,7 @@ make_bootstrap_fakes() {
     'if [[ -n "$output" ]]; then' \
     '  printf '\''fake ros2 apt source package\n'\'' >"$output"' \
     'else' \
-    '  printf '\''  "tag_name": "1.2.3",\n'\''' \
+    '  printf '\''{"tag_name": "1.2.3"}\n'\''' \
     'fi' \
     >"$fake_bin/curl"
   chmod +x "$fake_bin/curl"
@@ -147,7 +149,7 @@ make_bootstrap_fakes() {
     'done' \
     'printf '\''\n'\'' >>"$FSAI_COMMAND_LOG"' \
     'src_dir="${@: -1}"' \
-    'for repository in eufs_sim2 vehicle_models state_lib map_lib eufs_msgs eufs_gmock_matchers eufs_logger open_car_dynamics; do' \
+    'for repository in eufs_sim2 vehicle_models state_lib map_lib eufs_msgs eufs_gmock_matchers eufs_logger open_car_dynamics pybind11_conversions; do' \
     '  mkdir -p "$src_dir/$repository/.git"' \
     'done' \
     >"$fake_bin/vcs"
@@ -185,6 +187,7 @@ make_bootstrap_fakes() {
     '      eufs_gmock_matchers) printf '\''7ef83d030746c6a31bcf4f888d4121fcf4b7e8a9\n'\'' ;;' \
     '      eufs_logger) printf '\''375ea1d8f8885af66809129e444624ba13353fa7\n'\'' ;;' \
     '      open_car_dynamics) printf '\''94f8fb187fb0ed22bba1d809bd74f66d1ff75af4\n'\'' ;;' \
+    '      pybind11_conversions) printf '\''6c97133c717133b9c8f2ab42c602677b36a9a658\n'\'' ;;' \
     '    esac' \
     '    ;;' \
     '  remote)' \
@@ -222,8 +225,11 @@ fake_bin="$tmp_dir/fake-bin"
 command_log="$tmp_dir/commands.log"
 ros_setup="$tmp_dir/setup.bash"
 make_fake_commands "$fake_bin"
-printf 'printf "setup\\n" >>"$FSAI_COMMAND_LOG"\n' >"$ros_setup"
+printf ': "$FSAI_TEST_UNSET_SETUP_VARIABLE"\nprintf "setup\\n" >>"$FSAI_COMMAND_LOG"\n' >"$ros_setup"
 chmod +x "$ros_setup"
+
+non_ubuntu_os_release="$tmp_dir/non-ubuntu-os-release"
+printf 'ID=debian\nVERSION_ID="12"\n' >"$non_ubuntu_os_release"
 
 touch "$command_log"
 export FSAI_COMMAND_LOG="$command_log"
@@ -233,6 +239,7 @@ export FSAI_COMMAND_LOG="$command_log"
     PATH="$fake_bin:$PATH" \
     TMPDIR="$tmp_dir" \
     FSAI_COMMAND_LOG="$command_log" \
+    FSAI_OS_RELEASE_FILE="$non_ubuntu_os_release" \
     "$bootstrap"
 )
 [[ ! -s "$command_log" ]] || fail 'bootstrap invoked a mutating command on a non-Ubuntu host'
@@ -283,6 +290,18 @@ dpkg-query --show --showformat=\\$\\{db:Status-Status\\} python3-colcon-common-e
 dpkg-query --show --showformat=\\$\\{db:Status-Status\\} clang-tidy
 dpkg-query --show --showformat=\\$\\{db:Status-Status\\} lcov
 sudo apt-get install --yes ros-humble-desktop python3-vcstool python3-rosdep python3-colcon-common-extensions clang-tidy lcov
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} build-essential
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} cmake
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} git
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} python3-dev
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} python3-yaml
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} libssl-dev
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} libeigen3-dev
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} libfmt-dev
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} ros-humble-ament-cmake-python
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} ros-humble-ament-cmake-pytest
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} ros-humble-pybind11-vendor
+sudo apt-get install --yes build-essential cmake git python3-dev python3-yaml libssl-dev libeigen3-dev libfmt-dev ros-humble-ament-cmake-python ros-humble-ament-cmake-pytest ros-humble-pybind11-vendor
 vcs import --skip-existing $simulator_src
 git -C $simulator_src/eufs_sim2 status --porcelain
 git -C $simulator_src/eufs_sim2 rev-parse HEAD
@@ -300,6 +319,8 @@ git -C $simulator_src/eufs_logger status --porcelain
 git -C $simulator_src/eufs_logger rev-parse HEAD
 git -C $simulator_src/open_car_dynamics status --porcelain
 git -C $simulator_src/open_car_dynamics rev-parse HEAD
+git -C $simulator_src/pybind11_conversions status --porcelain
+git -C $simulator_src/pybind11_conversions rev-parse HEAD
 git -C $simulator_src/eufs_sim2 rev-parse --is-inside-work-tree
 git -C $simulator_src/eufs_sim2 rev-parse --is-inside-work-tree
 git -C $simulator_src/eufs_sim2 status --porcelain
@@ -309,8 +330,9 @@ git -C $simulator_src/eufs_sim2 remote get-url origin
 git -C $simulator_src/eufs_sim2 remote rename origin upstream
 git -C $simulator_src/eufs_sim2 remote set-url --push upstream DISABLED
 sudo rosdep init
-rosdep update
-rosdep install --from-paths $simulator_src --ignore-src --recursive --yes"
+rosdep update --rosdistro humble
+colcon list --base-paths $simulator_src --packages-up-to fsai_bringup --paths-only
+rosdep install --from-paths $simulator_src --ignore-src --recursive --yes --rosdistro humble"
 
 : >"$command_log"
 (
@@ -340,6 +362,17 @@ dpkg-query --show --showformat=\\$\\{db:Status-Status\\} python3-rosdep
 dpkg-query --show --showformat=\\$\\{db:Status-Status\\} python3-colcon-common-extensions
 dpkg-query --show --showformat=\\$\\{db:Status-Status\\} clang-tidy
 dpkg-query --show --showformat=\\$\\{db:Status-Status\\} lcov
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} build-essential
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} cmake
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} git
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} python3-dev
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} python3-yaml
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} libssl-dev
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} libeigen3-dev
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} libfmt-dev
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} ros-humble-ament-cmake-python
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} ros-humble-ament-cmake-pytest
+dpkg-query --show --showformat=\\$\\{db:Status-Status\\} ros-humble-pybind11-vendor
 vcs import --skip-existing $simulator_src
 git -C $simulator_src/eufs_sim2 status --porcelain
 git -C $simulator_src/eufs_sim2 rev-parse HEAD
@@ -357,6 +390,8 @@ git -C $simulator_src/eufs_logger status --porcelain
 git -C $simulator_src/eufs_logger rev-parse HEAD
 git -C $simulator_src/open_car_dynamics status --porcelain
 git -C $simulator_src/open_car_dynamics rev-parse HEAD
+git -C $simulator_src/pybind11_conversions status --porcelain
+git -C $simulator_src/pybind11_conversions rev-parse HEAD
 git -C $simulator_src/eufs_sim2 rev-parse --is-inside-work-tree
 git -C $simulator_src/eufs_sim2 rev-parse --is-inside-work-tree
 git -C $simulator_src/eufs_sim2 status --porcelain
@@ -365,8 +400,9 @@ git -C $simulator_src/eufs_sim2 remote
 git -C $simulator_src/eufs_sim2 remote get-url upstream
 git -C $simulator_src/eufs_sim2 remote get-url --push --all upstream
 git -C $simulator_src/eufs_sim2 remote get-url --push --all upstream
-rosdep update
-rosdep install --from-paths $simulator_src --ignore-src --recursive --yes"
+rosdep update --rosdistro humble
+colcon list --base-paths $simulator_src --packages-up-to fsai_bringup --paths-only
+rosdep install --from-paths $simulator_src --ignore-src --recursive --yes --rosdistro humble"
 
 : >"$command_log"
 (
@@ -378,7 +414,7 @@ rosdep install --from-paths $simulator_src --ignore-src --recursive --yes"
     "$build"
 )
 assert_log_equals "setup
-colcon build --base-paths $repo_root/simulator/src --build-base $repo_root/build --install-base $repo_root/install --log-base $repo_root/log --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo"
+colcon --log-base $repo_root/log build --base-paths $repo_root/simulator/src --build-base $repo_root/build --install-base $repo_root/install --packages-up-to fsai_bringup --executor sequential --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_PROJECT_INCLUDE=$repo_root/cmake/eufs_compatibility.cmake"
 
 : >"$command_log"
 set +e
@@ -388,6 +424,7 @@ set +e
     PATH="$fake_bin:$PATH" \
     FSAI_COMMAND_LOG="$command_log" \
     FSAI_ROS_SETUP="$ros_setup" \
+    FSAI_WORKSPACE_SETUP="$ros_setup" \
     FSAI_FAKE_COLCON_TEST_STATUS=17 \
     "$test_command"
 )
@@ -395,8 +432,9 @@ test_status=$?
 set -e
 [[ "$test_status" -eq 17 ]] || fail "test command should preserve colcon test status, got $test_status"
 assert_log_equals "setup
-colcon test --base-paths $repo_root/simulator/src --build-base $repo_root/build --install-base $repo_root/install --log-base $repo_root/log
-colcon test-result --verbose --test-result-base $repo_root/build"
+setup
+colcon --log-base $repo_root/log test --base-paths $repo_root/simulator/src --build-base $repo_root/build --install-base $repo_root/install --packages-up-to fsai_bringup --executor sequential --return-code-on-test-failure
+colcon --log-base $repo_root/log test-result --verbose --test-result-base $repo_root/build"
 
 : >"$command_log"
 (
@@ -405,12 +443,14 @@ colcon test-result --verbose --test-result-base $repo_root/build"
     PATH="$fake_bin:$PATH" \
     FSAI_COMMAND_LOG="$command_log" \
     FSAI_ROS_SETUP="$ros_setup" \
+    FSAI_WORKSPACE_SETUP="$ros_setup" \
     "$run_sim" \
     --vehicle fsai_vehicle \
     --track skidpad \
     --scenario dry_run
 )
 assert_log_equals "setup
+setup
 ros2 launch fsai_bringup simulator.launch.py vehicle:=fsai_vehicle track:=skidpad scenario:=dry_run"
 
 expect_status_and_output 2 'Usage:' "$run_sim" --vehicle fsai_vehicle --track skidpad

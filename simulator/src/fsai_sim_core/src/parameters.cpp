@@ -45,6 +45,47 @@ DerivedParameters Derive(const VehicleParameters &parameters) {
 }
 
 void ValidateParameters(const VehicleParameters &parameters) {
+  if (parameters.schema_version != 1) {
+    throw ValidationError("parameter schema_version must be 1");
+  }
+  struct Bound {const char *name; double value; double minimum; bool strict;};
+  const Bound bounds[] = {
+    {"front_track_m",parameters.front_track_m,0,true},
+    {"rear_track_m",parameters.rear_track_m,0,true},
+    {"rolling_resistance",parameters.rolling_resistance,0,false},
+    {"max_steering_angle_rad",parameters.max_steering_angle_rad,0,true},
+    {"max_steering_rate_radps",parameters.max_steering_rate_radps,0,true},
+    {"max_front_axle_torque_nm",parameters.max_front_axle_torque_nm,0,false},
+    {"max_rear_axle_torque_nm",parameters.max_rear_axle_torque_nm,0,false},
+    {"max_brake_torque_nm",parameters.max_brake_torque_nm,0,false},
+    {"pacejka_B_front",parameters.pacejka_B_front,0,true},
+    {"pacejka_C_front",parameters.pacejka_C_front,0,true},
+    {"pacejka_D_front",parameters.pacejka_D_front,0,true},
+    {"pacejka_B_rear",parameters.pacejka_B_rear,0,true},
+    {"pacejka_C_rear",parameters.pacejka_C_rear,0,true},
+    {"pacejka_D_rear",parameters.pacejka_D_rear,0,true},
+    {"air_density_kgpm3",parameters.air_density_kgpm3,0,true},
+    {"lumped_drag_n_s2_per_m2",parameters.lumped_drag_n_s2_per_m2,0,false},
+    {"lumped_downforce_n_s2_per_m2",parameters.lumped_downforce_n_s2_per_m2,0,false},
+    {"timeout_brake_ratio",parameters.timeout_brake_ratio,0,false},
+    {"ebs_brake_ratio",parameters.ebs_brake_ratio,0,false},
+    {"static_speed_threshold_mps",parameters.static_speed_threshold_mps,0,true},
+    {"rolling_smoothing_speed_mps",parameters.rolling_smoothing_speed_mps,0,true},
+    {"hold_release_force_n",parameters.hold_release_force_n,0,false},
+  };
+  for (const auto &b:bounds) {
+    if (!std::isfinite(b.value) || (b.strict ? b.value <= b.minimum : b.value < b.minimum)) {
+      Reject(b.name,b.value);
+    }
+  }
+  if (!std::isfinite(parameters.pacejka_E_front)) Reject("pacejka_E_front",parameters.pacejka_E_front);
+  if (!std::isfinite(parameters.pacejka_E_rear)) Reject("pacejka_E_rear",parameters.pacejka_E_rear);
+  if (parameters.max_steering_angle_rad >= std::acos(-1.0)/2) {
+    Reject("max_steering_angle_rad",parameters.max_steering_angle_rad);
+  }
+  if (parameters.command_timeout <= Duration{0}) {
+    throw ValidationError("command_timeout must be positive");
+  }
   if (!(parameters.mass_kg > 0.0) || !std::isfinite(parameters.mass_kg)) {
     Reject("mass_kg", parameters.mass_kg);
   }

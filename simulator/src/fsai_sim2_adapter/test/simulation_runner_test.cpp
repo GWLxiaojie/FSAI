@@ -15,6 +15,12 @@ namespace {
 
 class FakeCore final : public eufs::sim2::core::CoreSimulationBase {
  public:
+  using Duration = eufs::sim2::core::Duration;
+  using Time = eufs::sim2::core::Time;
+  using ControlInput = eufs::sim2::core::ControlInput;
+  using VehicleState = eufs::sim2::core::VehicleState;
+  using WheelSpeeds = eufs::sim2::core::WheelSpeeds;
+  using VehicleForces = eufs::sim2::core::VehicleForces;
   void Step(Duration dt) override {
     steps_.push_back(dt);
     time_ += dt;

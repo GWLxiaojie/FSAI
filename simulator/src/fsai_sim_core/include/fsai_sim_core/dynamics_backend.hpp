@@ -18,6 +18,11 @@ struct DynamicsEvaluation final {
   double roll_force_n{};
   double yaw_moment_nm{};
   double net_longitudinal_force_n{};
+  double front_longitudinal_force_n{};
+  double rear_longitudinal_force_n{};
+  double front_normal_force_n{};
+  double rear_normal_force_n{};
+  bool kinematic_constraint_active{false};
 };
 
 class DynamicsBackend {

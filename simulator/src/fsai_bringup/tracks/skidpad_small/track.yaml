@@ -5,7 +5,7 @@ frame_id: map
 vehicle_start:
   x_m: 0.0
   y_m: 0.0
-  yaw_rad: 0.0
+  yaw_rad: 1.5707963267948966
 start_gate:
   x_m: 0.0
   y_m: 0.0

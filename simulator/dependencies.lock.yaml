@@ -47,3 +47,9 @@ dependencies:
     license: Apache-2.0
     copyright_owner: not stated in pinned LICENSE
     license_evidence: https://github.com/TUMFTM/Open-Car-Dynamics/blob/94f8fb187fb0ed22bba1d809bd74f66d1ff75af4/LICENSE
+  pybind11_conversions:
+    url: https://gitlab.com/eufs/public/pybind11_conversions.git
+    revision: 6c97133c717133b9c8f2ab42c602677b36a9a658
+    license: not_declared_at_pinned_revision
+    copyright_owner: not stated in pinned package metadata
+    license_evidence: https://gitlab.com/eufs/public/pybind11_conversions/-/blob/6c97133c717133b9c8f2ab42c602677b36a9a658/package.xml

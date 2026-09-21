@@ -18,9 +18,11 @@ expect_failure() {
   fi
 }
 
-vcs validate < "$manifest"
+# Check the manifest offline. vcstool 0.3.0's remote SHA validation crashes for
+# detached commits, and network reachability is exercised by the import/clone.
+# The strict schema/lock comparison below avoids that remote vcstool code path.
 
-python3 - "$manifest" <<'PY'
+python3 - "$manifest" "$project_root/simulator/dependencies.lock.yaml" <<'PY'
 import sys
 import yaml
 
@@ -33,6 +35,7 @@ expected = {
     "eufs_gmock_matchers": ("https://gitlab.com/eufs/public/eufs-gmock-matchers.git", "7ef83d030746c6a31bcf4f888d4121fcf4b7e8a9"),
     "eufs_logger": ("https://gitlab.com/eufs/public/eufs-logger.git", "375ea1d8f8885af66809129e444624ba13353fa7"),
     "open_car_dynamics": ("https://github.com/TUMFTM/Open-Car-Dynamics.git", "94f8fb187fb0ed22bba1d809bd74f66d1ff75af4"),
+    "pybind11_conversions": ("https://gitlab.com/eufs/public/pybind11_conversions.git", "6c97133c717133b9c8f2ab42c602677b36a9a658"),
 }
 with open(sys.argv[1], encoding="utf-8") as manifest_file:
     manifest = yaml.safe_load(manifest_file)
@@ -43,6 +46,13 @@ for name, (url, revision) in expected.items():
     repository = repositories[name]
     if repository != {"type": "git", "url": url, "version": revision}:
         raise SystemExit(f"invalid manifest entry for {name}: {repository!r}")
+with open(sys.argv[2], encoding="utf-8") as lock_file:
+    locked = yaml.safe_load(lock_file)["dependencies"]
+if set(locked) != set(expected):
+    raise SystemExit("lock file and manifest contain different repositories")
+for name, (url, revision) in expected.items():
+    if locked[name]["url"] != url or locked[name]["revision"] != revision:
+        raise SystemExit(f"lock file disagrees with manifest: {name}")
 PY
 
 test -x "$guard"
@@ -55,6 +65,7 @@ for ignored_path in \
   simulator/src/eufs_gmock_matchers/placeholder \
   simulator/src/eufs_logger/placeholder \
   simulator/src/open_car_dynamics/placeholder \
+  simulator/src/pybind11_conversions/placeholder \
   build/placeholder \
   install/placeholder \
   log/placeholder \

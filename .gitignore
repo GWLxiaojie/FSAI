@@ -7,8 +7,12 @@ simulator/src/eufs_msgs/
 simulator/src/eufs_gmock_matchers/
 simulator/src/eufs_logger/
 simulator/src/open_car_dynamics/
+simulator/src/pybind11_conversions/
 build/
 install/
 log/
 artifacts/
 *.mcap
+__pycache__/
+*.pyc
+.dependencies/

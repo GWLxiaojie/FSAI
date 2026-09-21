@@ -1,7 +1,7 @@
 schema_version: 1
 name: straight_acceleration
 mission: acceleration
-vehicle_profile: reference_bicycle
+vehicle_profile: ads_dv
 track_bundle: skidpad_small
 seed: 1
 duration_limit_s: 20
@@ -9,3 +9,11 @@ mode: as_fast_as_possible
 plant_step_ms: 1
 outer_step_ms: 5
 target_laps: 1
+auto_start: true
+commands:
+  - start_s: 5.0
+    end_s: 15.0
+    rear_axle_torque_nm: 80.0
+  - start_s: 15.0
+    end_s: 20.0
+    friction_brake_ratio: 1.0

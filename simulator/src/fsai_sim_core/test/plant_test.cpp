@@ -33,11 +33,30 @@ TEST(GroundTruth, ReportsPhysicalCgAcceleration) {
   EXPECT_TRUE(std::isfinite(result.ground_truth.ay_body_mps2));
 }
 
+TEST(GroundTruth, ReportsAcceptedAxleForcesAndAerodynamicNormalLoad) {
+  const auto p = ReferenceBicycleParameters();
+  Plant plant(p); auto s = plant.InitialState(); s.chassis.u_mps = 10.;
+  Command command{}; command.rear_axle_torque_nm = 50.;
+  const auto result = plant.Update(s, command, 5ms);
+  const auto &truth = result.ground_truth;
+  EXPECT_NEAR(truth.rear_longitudinal_force_n, 50./p.effective_tyre_radius_m, 1e-10);
+  EXPECT_DOUBLE_EQ(truth.front_longitudinal_force_n, 0.);
+  EXPECT_NEAR(truth.front_normal_force_n + truth.rear_normal_force_n,
+    p.mass_kg*p.gravity_mps2 + p.lumped_downforce_n_s2_per_m2 *
+      truth.chassis.u_mps*truth.chassis.u_mps, 1e-9);
+}
+
 TEST(Plant, RejectsParameterHashMismatch) {
   Plant plant(ReferenceBicycleParameters());
   auto state = plant.InitialState();
   state.parameter_hash = "deadbeef";
   EXPECT_THROW(plant.Update(state, Command{}, 5ms), ValidationError);
+}
+
+TEST(Plant, RejectsSnapshotsFromPreviousDynamicsRevision) {
+  Plant plant(ReferenceBicycleParameters());auto s=plant.InitialState();
+  s.backend_revision="1";
+  EXPECT_THROW(plant.Update(s,Command{},5ms),ValidationError);
 }
 
 TEST(Plant, SnapshotReplayMatches) {

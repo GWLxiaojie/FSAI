@@ -14,7 +14,7 @@ PlantState Plant::InitialState() const {
   PlantState state;
   state.parameter_hash = parameter_hash_;
   state.backend_id = "fsai_bicycle";
-  state.backend_revision = "1";
+  state.backend_revision = "2";
   return state;
 }
 
@@ -26,7 +26,7 @@ StepResult Plant::Update(
   if (state.schema_version != 1) {
     throw ValidationError("schema_version: " + std::to_string(state.schema_version));
   }
-  if (state.backend_id != "fsai_bicycle" || state.backend_revision != "1") {
+  if (state.backend_id != "fsai_bicycle" || state.backend_revision != "2") {
     throw ValidationError("backend_id: " + state.backend_id);
   }
   if (state.parameter_hash != parameter_hash_) {
@@ -36,25 +36,39 @@ StepResult Plant::Update(
   StepResult result;
   result.diagnostics.stage_order = {"actuator", "integrator", "ground_truth"};
 
-  const auto actuator = actuators_.Update(state.actuator, command, dt, parameters_);
-  auto integrated = integrator_.Integrate(
-    state.chassis, actuator.state, dt, parameters_, state.wheels);
+  if (dt <= Duration{0} || dt % HybridIntegrator::kInternalStep != Duration{0}) {
+    throw ValidationError("plant dt must be a positive multiple of 1 ms");
+  }
+  auto actuator = state.actuator;
+  IntegrationResult integrated;
+  integrated.state = state.chassis;
+  integrated.wheels = state.wheels;
+  // Advance the actuator on the same grid as the chassis. Updating steering
+  // once per outer step changes its trajectory when callers use 1 vs 5 ms.
+  for (Duration elapsed{0}; elapsed < dt; elapsed += HybridIntegrator::kInternalStep) {
+    actuator = actuators_.Update(actuator,command,HybridIntegrator::kInternalStep,parameters_).state;
+    integrated = integrator_.Integrate(integrated.state,actuator,
+      HybridIntegrator::kInternalStep,parameters_,integrated.wheels);
+    result.diagnostics.internal_steps += integrated.diagnostics.internal_steps;
+    for (auto event : integrated.events) {
+      event.time += state.sim_time + elapsed;
+      result.events.push_back(std::move(event));
+    }
+  }
 
   result.next_state = state;
   result.next_state.chassis = integrated.state;
-  result.next_state.actuator = actuator.state;
+  result.next_state.actuator = actuator;
   result.next_state.wheels = integrated.wheels;
   result.next_state.sim_time = state.sim_time + dt;
-  result.next_state.last_command_time = result.next_state.sim_time;
+  // Only the command receiver owns last_command_time; integration is not reception.
   result.next_state.parameter_hash = parameter_hash_;
 
   result.ground_truth = truth_builder_.Build(
     integrated.state,
-    actuator.state,
+    actuator,
     integrated.wheels,
     integrated.last_evaluation);
-  result.events = std::move(integrated.events);
-  result.diagnostics.internal_steps = integrated.diagnostics.internal_steps;
   result.diagnostics.front_slip_angle_rad =
     integrated.last_evaluation.front_slip_angle_rad;
   result.diagnostics.rear_slip_angle_rad =

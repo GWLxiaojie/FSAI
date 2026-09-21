@@ -18,17 +18,26 @@ if [[ "$#" -ne 0 ]]; then
   exit 2
 fi
 
-# shellcheck disable=SC1090
-source "$ros_setup"
+# shellcheck source=ros_env.sh
+source "$script_dir/ros_env.sh"
+fsai_source_setup "$ros_setup"
+fsai_use_local_dependencies "$repo_root"
+fsai_source_setup "${FSAI_WORKSPACE_SETUP:-$repo_root/install/setup.bash}"
+# Integration tests publish commands and reset services. Keep them off the
+# team's normal DDS domain and off the physical network.
+export ROS_DOMAIN_ID="${FSAI_TEST_DOMAIN_ID:-171}"
+export ROS_LOCALHOST_ONLY=1
 
 set +e
-colcon test \
+colcon --log-base "$repo_root/log" test \
   --base-paths "$repo_root/simulator/src" \
   --build-base "$repo_root/build" \
   --install-base "$repo_root/install" \
-  --log-base "$repo_root/log"
+  --packages-up-to fsai_bringup \
+  --executor sequential \
+  --return-code-on-test-failure
 test_status=$?
-colcon test-result --verbose --test-result-base "$repo_root/build"
+colcon --log-base "$repo_root/log" test-result --verbose --test-result-base "$repo_root/build"
 result_status=$?
 set -e
 

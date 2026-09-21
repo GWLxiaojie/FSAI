@@ -4,13 +4,14 @@ project(fsai_bringup)
 find_package(ament_cmake REQUIRED)
 
 install(
-  DIRECTORY launch vehicles tracks scenarios
+  DIRECTORY launch vehicles tracks scenarios config
   DESTINATION share/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)
   find_package(launch_testing_ament_cmake REQUIRED)
   add_launch_test(test/test_upstream_compatibility.launch.py TIMEOUT 30)
+  add_launch_test(test/test_physical.launch.py TIMEOUT 30)
 endif()
 
 ament_package()

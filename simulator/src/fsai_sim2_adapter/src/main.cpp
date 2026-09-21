@@ -6,9 +6,15 @@
 
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<fsai::sim2_adapter::FsaiSimulationNode>();
-  node->InitialisePlugins();
-  rclcpp::spin(node);
-  rclcpp::shutdown();
-  return 0;
+  try {
+    auto node = std::make_shared<fsai::sim2_adapter::FsaiSimulationNode>();
+    node->InitialisePlugins();
+    rclcpp::spin(node);
+    rclcpp::shutdown();
+    return 0;
+  } catch (const std::exception &error) {
+    RCLCPP_FATAL(rclcpp::get_logger("fsai_simulation"), "%s", error.what());
+    rclcpp::shutdown();
+    return 1;
+  }
 }

@@ -60,7 +60,7 @@ struct WheelState final {
 struct PlantState final {
   std::uint32_t schema_version{1};
   std::string backend_id{"fsai_bicycle"};
-  std::string backend_revision{"1"};
+  std::string backend_revision{"2"};
   std::string parameter_hash;
   ChassisState chassis;
   ActuatorState actuator;
@@ -103,6 +103,10 @@ struct GroundTruth final {
   std::array<double, 4> wheel_omega_radps{};
   double front_lateral_force_n{};
   double rear_lateral_force_n{};
+  double front_longitudinal_force_n{};
+  double rear_longitudinal_force_n{};
+  double front_normal_force_n{};
+  double rear_normal_force_n{};
 };
 
 struct Diagnostics final {

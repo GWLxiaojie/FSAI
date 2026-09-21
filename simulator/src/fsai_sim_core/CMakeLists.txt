@@ -9,9 +9,12 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-find_package(Eigen3 QUIET)
+option(FSAI_SIM_CORE_STANDALONE "Build the ROS-free library and tests without ament" OFF)
+find_package(Eigen3 REQUIRED)
 find_package(OpenSSL REQUIRED)
-find_package(ament_cmake QUIET)
+if(NOT FSAI_SIM_CORE_STANDALONE)
+  find_package(ament_cmake QUIET)
+endif()
 
 add_library(fsai_sim_core
   src/parameters.cpp
@@ -26,12 +29,8 @@ target_include_directories(fsai_sim_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-if(Eigen3_FOUND)
-  target_link_libraries(fsai_sim_core PUBLIC Eigen3::Eigen)
-else()
-  target_include_directories(fsai_sim_core PUBLIC /opt/homebrew/include/eigen3)
-endif()
-target_link_libraries(fsai_sim_core PUBLIC OpenSSL::Crypto)
+target_link_libraries(fsai_sim_core PUBLIC Eigen3::Eigen OpenSSL::Crypto)
+target_compile_definitions(fsai_sim_core PUBLIC EIGEN_INITIALIZE_MATRICES_BY_ZERO)
 
 install(
   DIRECTORY include/
@@ -47,7 +46,7 @@ install(
 if(ament_cmake_FOUND AND NOT FSAI_SIM_CORE_STANDALONE)
   find_package(ament_cmake REQUIRED)
   ament_export_targets(fsai_sim_coreTargets HAS_LIBRARY_TARGET)
-  ament_export_dependencies()
+  ament_export_dependencies(Eigen3 OpenSSL)
   if(BUILD_TESTING)
     find_package(ament_cmake_gtest REQUIRED)
     ament_add_gtest(types_test test/types_test.cpp)

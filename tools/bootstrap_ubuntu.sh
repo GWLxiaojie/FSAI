@@ -94,7 +94,7 @@ if [[ "$source_configured" != true || "$key_configured" != true \
   ros_apt_source_version="$(
     curl --fail --silent --show-error \
       https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest \
-      | awk -F'"' '/"tag_name"/ { print $4; exit }'
+      | python3 -c 'import json, sys; print(json.load(sys.stdin)["tag_name"])'
   )"
   [[ -n "$ros_apt_source_version" ]] || fail 'could not determine ros2-apt-source version'
 
@@ -116,6 +116,14 @@ ensure_apt_packages \
   python3-colcon-common-extensions \
   clang-tidy \
   lcov
+
+# The pinned state_lib/map_lib build Python bindings but omit some build
+# dependencies in their manifests. Supply them here without patching upstream.
+ensure_apt_packages \
+  build-essential cmake git python3-dev python3-yaml \
+  libssl-dev libeigen3-dev libfmt-dev \
+  ros-humble-ament-cmake-python ros-humble-ament-cmake-pytest \
+  ros-humble-pybind11-vendor
 
 mkdir -p "$src_dir"
 vcs import --skip-existing "$src_dir" < "$repos_file"
@@ -144,5 +152,10 @@ verify_locked_checkouts
 if [[ ! -f "$rosdep_sources" ]]; then
   sudo rosdep init
 fi
-rosdep update
-rosdep install --from-paths "$src_dir" --ignore-src --recursive --yes
+rosdep update --rosdistro humble
+# Open-Car-Dynamics is a locked reference for future backends, not a dependency
+# of the bicycle runtime. Resolve exactly the same package closure as build.sh.
+package_paths="$(colcon list --base-paths "$src_dir" --packages-up-to fsai_bringup --paths-only)"
+[[ -n "$package_paths" ]] || fail 'no runtime packages found'
+mapfile -t runtime_paths <<< "$package_paths"
+rosdep install --from-paths "${runtime_paths[@]}" --ignore-src --recursive --yes --rosdistro humble
