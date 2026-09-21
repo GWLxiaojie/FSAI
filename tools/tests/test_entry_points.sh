@@ -85,7 +85,8 @@ make_bootstrap_fakes() {
     'printf '\''\n'\'' >>"$FSAI_COMMAND_LOG"' \
     'if [[ "$1" == "dpkg" && "$2" == "--install" ]]; then' \
     '  : >"$FSAI_ROS_KEYRING"' \
-    '  printf '\''deb https://packages.ros.org/ros2/ubuntu jammy main\n'\'' >"$FSAI_APT_SOURCES_DIR/ros2.list"' \
+    '  printf '\''URIs: http://packages.ros.org/ros2/ubuntu\nSuites: jammy\n'\'' >"$FSAI_BOOTSTRAP_TMP/ros2.sources"' \
+    '  ln -s "$FSAI_BOOTSTRAP_TMP/ros2.sources" "$FSAI_APT_SOURCES_DIR/ros2.sources"' \
     'fi' \
     'if [[ "$1" == "rosdep" && "$2" == "init" ]]; then' \
     '  : >"$FSAI_ROSDEP_SOURCES"' \

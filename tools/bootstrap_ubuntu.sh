@@ -60,7 +60,8 @@ ensure_apt_packages() {
 }
 
 ros_source_is_configured() {
-  grep --recursive --quiet \
+  # ros2-apt-source installs a .sources symlink into this directory.
+  grep --dereference-recursive --quiet \
     --include='*.list' \
     --include='*.sources' \
     'packages.ros.org/ros2/ubuntu' \
