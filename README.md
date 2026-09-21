@@ -9,7 +9,7 @@ EUFS sim2 是固定提交的只读依赖；`fsai_sim_core` 独占车辆状态推
 ## 安装与测试
 
 ```bash
-git clone --branch feat/official-ten-laps https://github.com/GWLxiaojie/FSAI.git
+git clone https://github.com/GWLxiaojie/FSAI.git
 cd FSAI
 tools/bootstrap_ubuntu.sh
 tools/build.sh
@@ -18,7 +18,7 @@ python3 -B -m unittest discover -s tools/tests -p 'test_*.py' -v
 ```
 
 Bootstrap 需要 sudo 安装系统依赖，导入锁定的源码，并禁止向 EUFS sim2 push。
-本次功能发布在 `feat/official-ten-laps`，包含 `fix/humble-simulator` 的全部修复；合入main后可省略clone命令的分支参数。
+Humble修复、官方车辆外观与10圈自检已整合到 `main`，默认克隆即可使用，无需切换功能分支。
 已有依赖目录若脏或提交不匹配会报错，不会覆盖你的改动。
 构建只包含 `fsai_bringup` 的依赖闭包；锁定的 Open-Car-Dynamics 是后续后端参考，不是当前运行核心。
 脚本会加载 Humble 和本工作区环境，默认每包构建并发为2，避免头文件较多的依赖耗尽内存。
