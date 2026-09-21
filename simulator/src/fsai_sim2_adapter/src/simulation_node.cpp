@@ -110,6 +110,10 @@ FsaiSimulationNode::FsaiSimulationNode(const rclcpp::NodeOptions &options)
     track_ = LoadTrack(track_path);
     interfaces_ = LoadInterfaceConfig(std::filesystem::path(core_params) / "interfaces.yaml");
     vehicle_parameters_ = LoadVehicleProfile(core_params);
+    report_path_ = declare_parameter<std::string>("report_path", "");
+    if (!report_path_.empty() && std::filesystem::exists(report_path_)) {
+      throw ConfigurationError("report_path already exists; reports are never overwritten: " + report_path_);
+    }
     const auto duration = declare_parameter<double>("duration_limit_s", -1.0);
     const auto seed = declare_parameter<std::int64_t>("seed", -1);
     const auto step_ms = declare_parameter<int>("outer_step_ms", -1);
@@ -196,6 +200,10 @@ void FsaiSimulationNode::ResetPhysical() {
   next_cones_ = next_wheels_ = next_gnss_ = {};
   steps_taken_ = 0;
   stopped_ = false;
+  wheel_angles_ = {};
+  last_joint_time_ = {};
+  track_markers_published_ = false;
+  ResetReference();
 }
 
 void FsaiSimulationNode::OnActuation(
@@ -252,7 +260,7 @@ void FsaiSimulationNode::AdvanceOneStep() {
     if (safety_state_ == SafetyState::kReady && now - ready_since_ >= std::chrono::seconds(5)) {
       (void)StartDriving(reason);
     }
-    if (safety_state_ == SafetyState::kDriving) {
+    if (safety_state_ == SafetyState::kDriving && !scenario_.reference_driver) {
       for (const auto &scheduled : scenario_.commands) {
         if (now >= scheduled.start && now < scheduled.end) {
           Adapter().SetPhysicalCommand(scheduled.command, now);
@@ -261,13 +269,32 @@ void FsaiSimulationNode::AdvanceOneStep() {
       }
     }
   }
-  context_->Current().runner->StepOnce();
+  if (core_type_ == "fsai" && scenario_.reference_driver && scripted_run_) {
+    const auto now = Adapter().plant_state().sim_time;
+    if (reference_failure_reason_.empty() &&
+        ((max_steps_ > 0 && steps_taken_ >= max_steps_) || now >= scenario_.duration)) {
+      reference_failure_reason_ = "reference run reached its time/step limit before successful completion";
+      safety_state_ = SafetyState::kEmergencyBrake;
+      Adapter().RequestEbs();
+    }
+    StepReference();
+    if (stopped_) { return; }
+  }
+  try {
+    context_->Current().runner->StepOnce();
+  } catch (const std::exception &error) {
+    if (reference_driver_ && scripted_run_ && !report_written_) {
+      FinishReference("failed", std::string("plant failed: ") + error.what());
+    }
+    throw;
+  }
   ++steps_taken_;
   const auto time = context_->Current().simulation->GetCore().GetTime();
   clock_publisher_->publish(eufs::sim2::time::TimeToClockMsg(time));
   if (core_type_ == "fsai") { PublishPhysicalState(); }
-  if ((max_steps_ > 0 && steps_taken_ >= max_steps_) ||
-      (core_type_ == "fsai" && time.count() >= static_cast<std::size_t>(scenario_.duration.count()))) {
+  if (!(core_type_ == "fsai" && scenario_.reference_driver && scripted_run_) &&
+      ((max_steps_ > 0 && steps_taken_ >= max_steps_) ||
+      (core_type_ == "fsai" && time.count() >= static_cast<std::size_t>(scenario_.duration.count())))) {
     stopped_ = true;
     if (core_type_ == "fsai") {
       safety_state_ = SafetyState::kFinished;

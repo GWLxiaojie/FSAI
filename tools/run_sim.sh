@@ -18,6 +18,7 @@ vehicle=""
 track=""
 scenario=""
 launch_options=()
+visualize=false
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --vehicle)
@@ -47,6 +48,7 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --visualize)
       launch_options+=("visualize:=true")
+      visualize=true
       shift
       ;;
     *)
@@ -64,6 +66,10 @@ fi
 resources=()
 if [[ -n "$vehicle" ]]; then resources+=("vehicle:=$vehicle"); fi
 if [[ -n "$track" ]]; then resources+=("track:=$track"); fi
+if [[ "$visualize" == true && ( -z "$vehicle" || "${vehicle##*/}" == ads_dv ) ]]; then
+  python3 "$script_dir/official_assets.py"
+  launch_options+=("vehicle_description:=$repo_root/.dependencies/official/generated/ads_dv_official.urdf")
+fi
 
 cd "$repo_root"
 # shellcheck source=ros_env.sh

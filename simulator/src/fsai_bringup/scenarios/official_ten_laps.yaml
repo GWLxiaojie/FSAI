@@ -1,0 +1,15 @@
+schema_version: 1
+name: official_ten_laps
+mission: track_drive
+vehicle_profile: ads_dv
+# tools/run_official_laps.sh overrides this with the verified local asset path.
+track_bundle: official_sprint
+seed: 1
+duration_limit_s: 3600
+mode: realtime
+plant_step_ms: 1
+outer_step_ms: 5
+auto_start: true
+reference_driver: true
+target_laps: 10
+cruise_speed_mps: 2.5

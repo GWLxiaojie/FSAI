@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "repository": "FS-AI/FS-AI_IMechE_ADS-DV_HiL",
+  "commit": "1fe77bed411ba621a3187bc2eb9ca13c7d371832",
+  "usage": "Official external data; fetch and convert locally only, never redistribute in this repository.",
+  "files": [
+    {"path":"README.md","git_blob_sha1":"f416b24f393e19aa7af0a3cb440dd1d78e202719","size":974},
+    {"path":"Data/Road/FS_autonomous_Sprint_LTS.rd5","git_blob_sha1":"5ae04a67015d767812f2ec9e43b371e687dcf567","size":4619},
+    {"path":"Data/TestRun/FS_autonomous_Sprint_LTS","git_blob_sha1":"6d5460c2eddadcf23e1b3240eb657e7a7028d30f","size":413492},
+    {"path":"Data/Script/generate_cones.tcl","git_blob_sha1":"bf64a111d0dbe793b4b8db7ef6548fa5287d783d","size":6234},
+    {"path":"Movie/3D/Terrain/FS_autonomous_Sprint_LTS.obj","git_blob_sha1":"eb74dddb44068aa8b4a5793cb889dae2778bb7de","size":285302},
+    {"path":"Movie/3D/Terrain/FS_autonomous_Sprint_LTS.mtl","git_blob_sha1":"fec3d69d9ff548e3841057e1105727c1edf1bfe7","size":150},
+    {"path":"Movie/TrafficCones/TrafficCones.mtl","git_blob_sha1":"6a173b9425cd7f559b8680eb5ad6e3c0a32a9f33","size":595},
+    {"path":"Movie/TrafficCones/TrafficCone_Small_Blue.obj","git_blob_sha1":"a462a37ae0afa543203a932840de28ca0d59f772","size":27556},
+    {"path":"Movie/TrafficCones/TrafficCone_Small_Yellow.obj","git_blob_sha1":"3fc764b514a977cf52f98d8d1b7bda4296245c49","size":27560},
+    {"path":"Movie/TrafficCones/TrafficCone_Small_Orange.obj","git_blob_sha1":"2a25b46596f6b88f466910885909d4a957b2e37b","size":27556},
+    {"path":"Movie/TrafficCones/TrafficCone_Large_Orange.obj","git_blob_sha1":"cd4173956c8caac0eeb4fdc3352b9663ed71f666","size":40691},
+    {"path":"MovieNX/data/3D/Vehicles/FSAI_RaceCar_2026.assetinfo","git_blob_sha1":"4a3c903f80d7c6b8632f1274cee2d8097d076cb3","size":1143},
+    {"path":"MovieNX/data/3D/Vehicles/Components/FSAI_RaceCar/FSAI_Body.glb","git_blob_sha1":"d9ca0e29df6cae855188fb48833306b6419d06fb","size":566496},
+    {"path":"MovieNX/data/3D/Vehicles/Components/FSAI_RaceCar/FSAI_Wheel.glb","git_blob_sha1":"97632e84a31c9c28e07b5450bd1b3002a9a9b73b","size":1183364}
+  ]
+}

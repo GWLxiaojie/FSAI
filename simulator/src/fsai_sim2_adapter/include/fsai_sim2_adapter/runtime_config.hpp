@@ -3,10 +3,12 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <string>
 #include <vector>
 
 #include "fsai_sim_core/types.hpp"
+#include "fsai_sim2_adapter/reference_driver.hpp"
 
 namespace fsai::sim2_adapter {
 
@@ -27,6 +29,12 @@ struct TrackConfig {
   std::string frame_id;
   fsai::sim::ChassisState start;
   std::vector<TrackCone> cones;
+  std::vector<ReferenceWaypoint> control_centerline;
+  std::string control_centerline_sha256;
+  std::string source_directory;
+  std::string road_mesh_uri;
+  std::string terrain_mesh_uri;
+  std::map<std::string, std::string> cone_mesh_uris;
 };
 
 struct ScheduledCommand {
@@ -45,6 +53,9 @@ struct ScenarioConfig {
   fsai::sim::Duration duration{};
   fsai::sim::Duration outer_step{};
   bool auto_start{false};
+  bool reference_driver{false};
+  std::uint32_t target_laps{10};
+  double cruise_speed_mps{2.5};
   std::vector<ScheduledCommand> commands;
 };
 

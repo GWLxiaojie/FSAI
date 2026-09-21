@@ -2,12 +2,14 @@
 
 #include <cmath>
 #include <fstream>
+#include <iomanip>
 #include <limits>
 #include <set>
 #include <sstream>
 #include <stdexcept>
 
 #include <yaml-cpp/yaml.h>
+#include <openssl/evp.h>
 
 namespace fsai::sim2_adapter {
 namespace {
@@ -53,6 +55,22 @@ double CsvNumber(const std::string &text, const std::string &location) {
   }
   return value;
 }
+
+std::string FileSha256(const std::filesystem::path &file) {
+  std::ifstream input(file, std::ios::binary);
+  if (!input) { throw std::invalid_argument("cannot read " + file.string()); }
+  const std::string bytes{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+  unsigned char digest[EVP_MAX_MD_SIZE];
+  unsigned int size = 0;
+  if (EVP_Digest(bytes.data(), bytes.size(), digest, &size, EVP_sha256(), nullptr) != 1) {
+    throw std::runtime_error("SHA256 failed for " + file.string());
+  }
+  std::ostringstream hash;
+  for (unsigned int i = 0; i < size; ++i) {
+    hash << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(digest[i]);
+  }
+  return hash.str();
+}
 }  // namespace
 
 fsai::sim::Duration SecondsToDuration(double seconds, const std::string &field) {
@@ -83,6 +101,7 @@ TrackConfig LoadTrack(const std::filesystem::path &directory) {
     const auto root = Read(directory / "track.yaml");
     Schema(root);
     TrackConfig result;
+    result.source_directory = std::filesystem::absolute(directory).string();
     result.name = Text(root, "name");
     result.frame_id = Text(root, "frame_id");
     if (result.frame_id != "map") {
@@ -134,6 +153,48 @@ TrackConfig LoadTrack(const std::filesystem::path &directory) {
       result.cones.push_back({fields[0], values[0], values[1]});
     }
     if (result.cones.empty()) { throw std::invalid_argument("cones.csv: no cones"); }
+    const auto centreline_file = directory / "control_centerline.csv";
+    if (std::filesystem::exists(centreline_file)) {
+      std::ifstream centreline(centreline_file);
+      if (!std::getline(centreline, line)) { throw std::invalid_argument("control_centerline.csv is empty"); }
+      if (!line.empty() && line.back() == '\r') { line.pop_back(); }
+      if (line != "x_m,y_m,width_m") { throw std::invalid_argument("control_centerline.csv:1: invalid header"); }
+      row = 1;
+      while (std::getline(centreline, line)) {
+        ++row;
+        if (!line.empty() && line.back() == '\r') { line.pop_back(); }
+        if (line.empty()) { continue; }
+        std::vector<std::string> fields;
+        std::istringstream stream(line);
+        std::string value;
+        while (std::getline(stream, value, ',')) { fields.push_back(value); }
+        const auto location = "control_centerline.csv:" + std::to_string(row);
+        if (fields.size() != 3) { throw std::invalid_argument(location + ": expected 3 fields"); }
+        ReferenceWaypoint point{CsvNumber(fields[0], location), CsvNumber(fields[1], location),
+          CsvNumber(fields[2], location)};
+        if (point.width_m <= 0) { throw std::invalid_argument(location + ": width must be positive"); }
+        result.control_centerline.push_back(point);
+      }
+      if (result.control_centerline.size() < 8) {
+        throw std::invalid_argument("control_centerline.csv requires at least 8 ordered points");
+      }
+      result.control_centerline_sha256 = FileSha256(centreline_file);
+    }
+    if (std::filesystem::exists(directory / "visuals.yaml")) {
+      const auto visuals = Read(directory / "visuals.yaml");
+      if (visuals["road_mesh_uri"]) { result.road_mesh_uri = Text(visuals, "road_mesh_uri"); }
+      if (visuals["terrain_mesh_uri"]) { result.terrain_mesh_uri = Text(visuals, "terrain_mesh_uri"); }
+      if (visuals["cone_mesh_uris"]) {
+        if (!visuals["cone_mesh_uris"].IsMap()) {
+          throw std::invalid_argument("visuals.yaml: cone_mesh_uris must be a mapping");
+        }
+        for (const auto &entry : visuals["cone_mesh_uris"]) {
+          const auto color = entry.first.as<std::string>();
+          if (!colors.contains(color)) { throw std::invalid_argument("visuals.yaml: unknown cone color " + color); }
+          result.cone_mesh_uris[color] = entry.second.as<std::string>();
+        }
+      }
+    }
     return result;
   } catch (const std::exception &e) {
     throw std::invalid_argument(directory.string() + ": " + e.what());
@@ -172,6 +233,16 @@ ScenarioConfig LoadScenario(const std::filesystem::path &file) {
       throw std::invalid_argument("duration must be positive and divisible by an outer step of 1..100 ms");
     }
     result.auto_start = root["auto_start"] ? root["auto_start"].as<bool>() : false;
+    result.reference_driver = root["reference_driver"] ? root["reference_driver"].as<bool>() : false;
+    if (result.reference_driver) {
+      const auto laps = root["target_laps"] ? root["target_laps"].as<int>() : 10;
+      result.cruise_speed_mps = root["cruise_speed_mps"] ? Number(root, "cruise_speed_mps") : 2.5;
+      if (!result.auto_start || root["commands"] || laps <= 0 || laps > 100 ||
+          result.cruise_speed_mps <= 0 || result.cruise_speed_mps > 3.0) {
+        throw std::invalid_argument("reference_driver requires auto_start, no commands, 1..100 laps and speed in (0,3] m/s");
+      }
+      result.target_laps = static_cast<std::uint32_t>(laps);
+    }
     if (root["commands"]) {
       if (!root["commands"].IsSequence()) { throw std::invalid_argument("commands must be a list"); }
       for (const auto &entry : root["commands"]) {

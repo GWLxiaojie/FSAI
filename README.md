@@ -4,12 +4,12 @@
 EUFS sim2 是固定提交的只读依赖；`fsai_sim_core` 独占车辆状态推进，Gazebo/Isaac Sim 不参与积分。
 默认车辆为官方 ADS-DV 几何基准，质量、轮胎、惯量及执行器动态仍保留未实车标定标识。
 参数出处和验证流程见 [ADS-DV 标定说明](docs/calibration.md)。
-本轮构建、437项测试汇总及运行验证记录见 [验收报告](docs/validation-2026-09-21.md)。
+基础修复记录见 [验收报告](docs/validation-2026-09-21.md)；官方车辆外观、赛道导入和10圈自检见 [跑圈说明与验收](docs/official-ten-laps.md)。
 
 ## 安装与测试
 
 ```bash
-git clone --branch fix/humble-simulator https://github.com/GWLxiaojie/FSAI.git
+git clone --branch feat/official-ten-laps https://github.com/GWLxiaojie/FSAI.git
 cd FSAI
 tools/bootstrap_ubuntu.sh
 tools/build.sh
@@ -18,7 +18,7 @@ python3 -B -m unittest discover -s tools/tests -p 'test_*.py' -v
 ```
 
 Bootstrap 需要 sudo 安装系统依赖，导入锁定的源码，并禁止向 EUFS sim2 push。
-本次修复发布在 `fix/humble-simulator`，合入main后可省略clone命令的分支参数。
+本次功能发布在 `feat/official-ten-laps`，包含 `fix/humble-simulator` 的全部修复；合入main后可省略clone命令的分支参数。
 已有依赖目录若脏或提交不匹配会报错，不会覆盖你的改动。
 构建只包含 `fsai_bringup` 的依赖闭包；锁定的 Open-Car-Dynamics 是后续后端参考，不是当前运行核心。
 脚本会加载 Humble 和本工作区环境，默认每包构建并发为2，避免头文件较多的依赖耗尽内存。
@@ -33,6 +33,29 @@ Bootstrap 需要 sudo 安装系统依赖，导入锁定的源码，并禁止向 
 在外部工作区直接编译这些EUFS头文件时应保持同一初始化策略。
 `pybind11_conversions` 是 map_lib 的必要源码依赖，已经加入锁文件。
 许可证出处及未声明项见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## 一键官方赛道低速跑10圈
+
+完成依赖安装后，在项目目录执行：
+
+```bash
+./tools/run_official_laps.sh
+```
+
+脚本自动下载并校验 IMechE FS-AI 官方 HiL 的 Sprint/LTS 赛道和 ADS-DV 原始外观模型，增量构建后打开 RViz，以2.5 m/s低速跑10圈并停车，约49分钟仿真时间。
+车辆使用原始 GLB 车身、四个轮胎及内嵌贴图，不使用方盒替代；当前动力学保持不变。
+这是官方仓库提供的 Sprint 布局，**不是已经核实年份的某届赛事实测地图**。路线由官方道路网格提取，转换精度与假设见跑圈说明。
+
+```bash
+./tools/run_official_laps.sh --fast    # 无窗口、加速执行完整10圈验证
+./tools/run_official_laps.sh --no-gui  # 无窗口、实时运行
+```
+
+每次在 `artifacts/` 生成独立JSON报告，只有完成10圈、保持赛道余量并停车才通过。
+默认仅限本机 DDS domain 183；录制/观察时需设置相同 `ROS_DOMAIN_ID=183 ROS_LOCALHOST_ONLY=1`。
+关闭窗口或按 Ctrl-C 是中止运行，不是完成验收。官方数据只保留在本地被忽略的 `.dependencies/official/`，不会上传到本仓库。
+
+跑圈使用车辆真值和已知中心线的参考控制器，用于模拟器回归和演示；**不代表依靠相机/LiDAR感知的完整无人驾驶系统，也不验证实车动力学精度**。
 
 ## 自动场景
 
@@ -98,6 +121,8 @@ python3 tools/drive_command.py --torque 30 --steering 0 --duration 2
 | `/sensors/wheel_speeds` | EUFS WheelSpeedsStamped，轮速rev/s，转角rad |
 | `/sensors/camera/cones`、`/sensors/lidar/cones` | 带seed噪声的语义锥桶观测，不是图像/点云 |
 | `/ground_truth/track_markers`、`/tf` | 可视化锥桶和车辆位姿 |
+| `/joint_states` | 官方外观的前轮转向和四轮滚动关节 |
+| `/sim/reference/status`、`/sim/reference/markers` | 参考自检模式的圈数、误差和状态 |
 
 完整接口、采样频率、配置与兼容边界见 [运行时说明](docs/runtime.md)。
 控制算法应使用传感器接口，不使用 `/ground_truth/*` 作为实车可用测量。

@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <limits>
+#include <fstream>
 #include <gtest/gtest.h>
 
 #include "fsai_sim2_adapter/runtime_config.hpp"
@@ -29,4 +30,30 @@ TEST(RuntimeConfig, RejectsMissingResourcesAndNonFiniteDurations) {
   EXPECT_THROW(fsai::sim2_adapter::SecondsToDuration(-1.0, "duration"), std::exception);
   EXPECT_THROW(fsai::sim2_adapter::SecondsToDuration(
     std::numeric_limits<double>::infinity(), "duration"), std::exception);
+}
+
+TEST(RuntimeConfig, ReferenceDriverRequiresExclusiveAutomaticControlAndValidTargets) {
+  const auto directory = std::filesystem::temp_directory_path() /
+    ("fsai-reference-config-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  ASSERT_TRUE(std::filesystem::create_directory(directory));
+  const auto file = directory / "scenario.yaml";
+  const std::string base =
+    "schema_version: 1\nname: test\nmission: track_drive\nvehicle_profile: ads_dv\n"
+    "track_bundle: official_sprint\nseed: 1\nduration_limit_s: 3600\n"
+    "mode: as_fast_as_possible\nplant_step_ms: 1\nouter_step_ms: 5\n";
+  auto write = [&](const std::string &extra) { std::ofstream(file) << base << extra; };
+  write("reference_driver: true\nauto_start: true\ntarget_laps: 10\ncruise_speed_mps: 2.5\n");
+  auto loaded = fsai::sim2_adapter::LoadScenario(file);
+  EXPECT_TRUE(loaded.reference_driver);
+  EXPECT_EQ(loaded.target_laps, 10u);
+  EXPECT_DOUBLE_EQ(loaded.cruise_speed_mps, 2.5);
+  write("reference_driver: true\nauto_start: false\n");
+  EXPECT_THROW(fsai::sim2_adapter::LoadScenario(file), std::exception);
+  write("reference_driver: true\nauto_start: true\ntarget_laps: 0\n");
+  EXPECT_THROW(fsai::sim2_adapter::LoadScenario(file), std::exception);
+  write("reference_driver: true\nauto_start: true\ncruise_speed_mps: 8.0\n");
+  EXPECT_THROW(fsai::sim2_adapter::LoadScenario(file), std::exception);
+  write("reference_driver: true\nauto_start: true\ncommands: []\n");
+  EXPECT_THROW(fsai::sim2_adapter::LoadScenario(file), std::exception);
+  std::filesystem::remove_all(directory);
 }

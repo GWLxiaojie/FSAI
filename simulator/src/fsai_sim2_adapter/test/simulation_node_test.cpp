@@ -1,9 +1,13 @@
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <memory>
 #include <thread>
 #include <vector>
+#include <numbers>
+#include <json/json.h>
 
 #include <gtest/gtest.h>
 
@@ -94,13 +98,14 @@ class PhysicalNodeTest : public testing::Test {
   }
 
   void Send(std::uint64_t sequence, double torque = 80.0, double brake = 0.0,
-    std::int32_t seconds_offset = 0) {
+    std::int32_t seconds_offset = 0, double steering = 0.0) {
     fsai_interfaces::msg::ActuationCommand message;
     message.stamp = states.back().stamp;
     message.stamp.sec += seconds_offset;
     message.sequence = sequence;
     message.rear_axle_torque_nm = torque;
     message.friction_brake_ratio = brake;
+    message.steering_angle_rad = steering;
     command->publish(message);
     executor.spin_some();
   }
@@ -161,6 +166,9 @@ TEST_F(PhysicalNodeTest, OldFutureAndDuplicateCommandsDoNotReplaceFreshBrake) {
 }
 
 TEST_F(PhysicalNodeTest, ResetRestoresPoseTimeAndRequiresRearming) {
+  sensor_msgs::msg::JointState joints;
+  auto joint_sub = peer->create_subscription<sensor_msgs::msg::JointState>(
+    "/joint_states", 10, [&joints](const sensor_msgs::msg::JointState &message) { joints = message; });
   eufs_msgs::msg::ConeArrayWithCovariance cones;
   auto cone_sub = peer->create_subscription<eufs_msgs::msg::ConeArrayWithCovariance>(
     "/sensors/camera/cones", 10,
@@ -169,8 +177,14 @@ TEST_F(PhysicalNodeTest, ResetRestoresPoseTimeAndRequiresRearming) {
   executor.spin_some();
   const auto initial_cones = cones;
   Arm();
-  Send(1);
+  Send(1, 80.0, 0.0, 0, 0.1);
   Step(10);
+  ASSERT_EQ(joints.name.size(), 6u);
+  EXPECT_EQ(joints.name[0], "steer_fl");
+  EXPECT_EQ(joints.name[5], "spin_rr");
+  EXPECT_GT(joints.position[0], joints.position[1]);
+  EXPECT_GT(joints.position[1], 0.0);
+  EXPECT_GT(joints.position[4], 0.0);
   ASSERT_TRUE(Trigger("/ebs"));
   Step();
   ASSERT_TRUE(Trigger("/reset"));
@@ -183,9 +197,96 @@ TEST_F(PhysicalNodeTest, ResetRestoresPoseTimeAndRequiresRearming) {
   EXPECT_DOUBLE_EQ(odometry.pose.pose.position.y, 0.0);
   EXPECT_NEAR(odometry.pose.pose.orientation.z, std::sqrt(0.5), 1e-12);
   EXPECT_EQ(cones, initial_cones);
+  ASSERT_EQ(joints.position.size(), 6u);
+  for (const double angle : joints.position) { EXPECT_DOUBLE_EQ(angle, 0.0); }
   Send(0);
   Step();
   EXPECT_DOUBLE_EQ(states.back().rear_axle_torque_nm, 0.0);
+}
+
+namespace {
+class ReferenceRuntimeTest : public testing::Test {
+ protected:
+  static void SetUpTestSuite() { int argc = 0; rclcpp::init(argc, nullptr); }
+  static void TearDownTestSuite() { rclcpp::shutdown(); }
+  void SetUp() override {
+    directory = std::filesystem::temp_directory_path() /
+      ("fsai-reference-runtime-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    ASSERT_TRUE(std::filesystem::create_directory(directory));
+    std::filesystem::copy_file(kBringup / "tracks/skidpad_small/cones.csv", directory / "cones.csv");
+    std::ofstream(directory / "track.yaml") <<
+      "schema_version: 1\nname: algorithm_circle_fixture\nframe_id: map\n"
+      "vehicle_start: {x_m: 12.0, y_m: 0.0, yaw_rad: 1.5707963267948966}\n"
+      "start_gate: {x_m: 12.0, y_m: 0.0, yaw_rad: 1.5707963267948966, width_m: 3.5}\n"
+      "finish_gate: {x_m: 12.0, y_m: 0.0, yaw_rad: 1.5707963267948966, width_m: 3.5}\n";
+    std::ofstream route(directory / "control_centerline.csv");
+    route << "x_m,y_m,width_m\n" << std::setprecision(17);
+    for (int i = 0; i < 240; ++i) {
+      const double angle = i * 2.0 * std::numbers::pi / 240.0;
+      route << 12 * std::cos(angle) << ',' << 12 * std::sin(angle) << ",3.5\n";
+    }
+    WriteScenario(400);
+  }
+  void TearDown() override { std::filesystem::remove_all(directory); }
+  void WriteScenario(int seconds) {
+    std::ofstream(directory / "scenario.yaml") <<
+      "schema_version: 1\nname: algorithm_ten_laps\nmission: track_drive\nvehicle_profile: reference_bicycle\n"
+      "track_bundle: algorithm_circle_fixture\nseed: 1\nmode: as_fast_as_possible\n"
+      "plant_step_ms: 1\nouter_step_ms: 5\nauto_start: true\nreference_driver: true\n"
+      "target_laps: 10\ncruise_speed_mps: 2.5\nduration_limit_s: " << seconds << '\n';
+  }
+  rclcpp::NodeOptions Options() {
+    rclcpp::NodeOptions options;
+    options.parameter_overrides({
+      {"core_params", (kBringup / "vehicles/reference_bicycle").string()},
+      {"track", directory.string()}, {"scenario", (directory / "scenario.yaml").string()},
+      {"report_path", (directory / "result.json").string()},
+      {"enable_timer", false}, {"shutdown_on_finish", false},
+    });
+    return options;
+  }
+  Json::Value Report() {
+    std::ifstream input(directory / "result.json");
+    Json::Value report;
+    input >> report;
+    return report;
+  }
+  std::filesystem::path directory;
+};
+}
+
+TEST_F(ReferenceRuntimeTest, TenLapsFinishOnlyAfterStoppingAndWriteExclusiveReport) {
+  auto sim = std::make_shared<fsai::sim2_adapter::FsaiSimulationNode>(Options());
+  for (int i = 0; i < 80000 && !std::filesystem::exists(directory / "result.json"); ++i) {
+    ASSERT_NO_THROW(sim->AdvanceOneStep());
+  }
+  ASSERT_TRUE(std::filesystem::exists(directory / "result.json"));
+  const auto report = Report();
+  EXPECT_EQ(report["outcome"].asString(), "complete");
+  EXPECT_EQ(report["completed_laps"].asUInt(), 10u);
+  EXPECT_EQ(report["target_laps"].asUInt(), 10u);
+  EXPECT_EQ(report["control_centerline_sha256"].asString().size(), 64u);
+  EXPECT_GT(report["min_clearance_m"].asDouble(), 0.0);
+  EXPECT_NEAR(report["final_speed_mps"].asDouble(), 0.0, 0.02);
+  EXPECT_GT(report["simulation_time_s"].asDouble(), 300.0);
+  EXPECT_THROW(std::make_shared<fsai::sim2_adapter::FsaiSimulationNode>(Options()), std::exception);
+  EXPECT_EQ(Report(), report) << "An existing report must not be overwritten";
+}
+
+TEST_F(ReferenceRuntimeTest, TimeoutWritesFailedReportAndThrowsInsteadOfSuccessfulFinish) {
+  WriteScenario(6);
+  auto sim = std::make_shared<fsai::sim2_adapter::FsaiSimulationNode>(Options());
+  bool failed = false;
+  for (int i = 0; i < 2400; ++i) {
+    try { sim->AdvanceOneStep(); }
+    catch (const std::runtime_error &) { failed = true; break; }
+  }
+  EXPECT_TRUE(failed);
+  ASSERT_TRUE(std::filesystem::exists(directory / "result.json"));
+  const auto report = Report();
+  EXPECT_EQ(report["outcome"].asString(), "failed");
+  EXPECT_LT(report["completed_laps"].asUInt(), 10u);
+  EXPECT_NEAR(report["final_speed_mps"].asDouble(), 0.0, 0.02);
 }
 
 TEST_F(PhysicalNodeTest, RealtimeAndFastModesProduceTheSameSeededScenario) {

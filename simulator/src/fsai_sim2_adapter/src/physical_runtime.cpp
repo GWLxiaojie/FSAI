@@ -53,6 +53,7 @@ void FsaiSimulationNode::SetupPhysicalInterfaces() {
   gnss_publisher_ = create_publisher<sensor_msgs::msg::NavSatFix>("/sensors/gnss", 10);
   oss_publisher_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/sensors/oss", 10);
   forces_publisher_ = create_publisher<eufs_msgs::msg::CarForces>("/ground_truth/forces", 10);
+  joint_publisher_ = create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10);
   wheel_publisher_ = create_publisher<eufs_msgs::msg::WheelSpeedsStamped>("/sensors/wheel_speeds", 10);
   camera_publisher_ = create_publisher<eufs_msgs::msg::ConeArrayWithCovariance>("/sensors/camera/cones", 10);
   lidar_publisher_ = create_publisher<eufs_msgs::msg::ConeArrayWithCovariance>("/sensors/lidar/cones", 10);
@@ -62,6 +63,11 @@ void FsaiSimulationNode::SetupPhysicalInterfaces() {
     "/ground_truth/track_markers", rclcpp::QoS(1).transient_local(), latched_options);
   safety_publisher_ = create_publisher<std_msgs::msg::String>("/sim/state/as_state", 10);
   mission_publisher_ = create_publisher<std_msgs::msg::String>("/sim/state/mission", 10);
+  if (scenario_.reference_driver) {
+    reference_publisher_ = create_publisher<std_msgs::msg::String>("/sim/reference/status", 10);
+    reference_marker_publisher_ = create_publisher<visualization_msgs::msg::MarkerArray>(
+      "/sim/reference/markers", rclcpp::QoS(1).transient_local(), latched_options);
+  }
   transform_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
   actuation_subscription_ = create_subscription<fsai_interfaces::msg::ActuationCommand>(
     interfaces_.command_topic, 10,
@@ -114,9 +120,11 @@ void FsaiSimulationNode::SetupPhysicalInterfaces() {
       // Reset returns to OFF even for a scripted run. A new launch starts a new
       // scripted experiment; /reset gives control back to the service client.
       scripted_run_ = false;
+      reference_outcome_ = "reset";
       if (timer_) { timer_->reset(); }
       clock_publisher_->publish(eufs::sim2::time::TimeToClockMsg(Adapter().GetTime()));
       PublishPhysicalState();
+      PublishReferenceStatus();
       reason = "Reset complete: OFF, simulation time zero, original track pose and seed restored";
       return true;
     } catch (const std::exception &error) {
@@ -125,6 +133,7 @@ void FsaiSimulationNode::SetupPhysicalInterfaces() {
     }
   });
   PublishPhysicalState();
+  PublishReferenceStatus();
 }
 
 void FsaiSimulationNode::PublishPhysicalState() {
@@ -178,6 +187,8 @@ void FsaiSimulationNode::PublishPhysicalState() {
   transform.transform.translation.y = chassis.y_m;
   transform.transform.rotation = orientation;
   transform_broadcaster_->sendTransform(transform);
+  PublishJointStates();
+  if (!track_markers_published_) { PublishTrackMarkers(); }
 
   // Ideal planar sensors: their missing hardware errors are explicit rather
   // than borrowing uncontrolled upstream RNG or uncalibrated error models.
@@ -255,30 +266,6 @@ void FsaiSimulationNode::PublishPhysicalState() {
     lidar_publisher_->publish(observation(100.0, std::numbers::pi / 2.0, 0.02, false, lidar_rng_));
     next_cones_ = plant.sim_time + std::chrono::milliseconds(50);
 
-    visualization_msgs::msg::MarkerArray markers;
-    for (std::size_t i = 0; i < track_.cones.size(); ++i) {
-      const auto &cone = track_.cones[i];
-      visualization_msgs::msg::Marker marker;
-      marker.header = odometry.header;
-      marker.ns = "track";
-      marker.id = static_cast<int>(i);
-      marker.type = visualization_msgs::msg::Marker::CYLINDER;
-      marker.action = visualization_msgs::msg::Marker::ADD;
-      marker.pose.position.x = cone.x;
-      marker.pose.position.y = cone.y;
-      marker.pose.position.z = 0.15;
-      marker.pose.orientation.w = 1.0;
-      marker.scale.x = marker.scale.y = 0.22;
-      marker.scale.z = 0.3;
-      marker.color.a = 1.0;
-      if (cone.color == "blue") { marker.color.b = 1.0; }
-      else if (cone.color == "yellow") { marker.color.r = marker.color.g = 1.0; }
-      else if (cone.color == "orange" || cone.color == "big_orange") {
-        marker.color.r = 1.0; marker.color.g = 0.4;
-      } else { marker.color.r = marker.color.g = marker.color.b = 0.5; }
-      markers.markers.push_back(marker);
-    }
-    track_publisher_->publish(markers);
   }
   std_msgs::msg::String safety;
   safety.data = StateName();
@@ -289,5 +276,81 @@ void FsaiSimulationNode::PublishPhysicalState() {
   std_msgs::msg::String mission;
   mission.data = missions[mission_];
   mission_publisher_->publish(mission);
+}
+void FsaiSimulationNode::PublishJointStates() {
+  const auto &plant = Adapter().plant_state();
+  const double dt = (plant.sim_time - last_joint_time_).count() * 1e-9;
+  for (std::size_t i = 0; i < wheel_angles_.size(); ++i) {
+    wheel_angles_[i] += plant.wheels[i].omega_radps * dt;
+  }
+  last_joint_time_ = plant.sim_time;
+  const double curvature = std::tan(plant.actuator.steering_angle_rad) / vehicle_parameters_.wheelbase_m;
+  const double half_track = vehicle_parameters_.front_track_m / 2.0;
+  sensor_msgs::msg::JointState joints;
+  joints.header.stamp = eufs::sim2::time::TimeToTimeMsg(Adapter().GetTime());
+  joints.name = {"steer_fl", "steer_fr", "spin_fl", "spin_fr", "spin_rl", "spin_rr"};
+  joints.position = {
+    std::atan2(vehicle_parameters_.wheelbase_m * curvature, 1.0 - half_track * curvature),
+    std::atan2(vehicle_parameters_.wheelbase_m * curvature, 1.0 + half_track * curvature),
+    wheel_angles_[0], wheel_angles_[1], wheel_angles_[2], wheel_angles_[3]};
+  joints.velocity = {0.0, 0.0, plant.wheels[0].omega_radps, plant.wheels[1].omega_radps,
+    plant.wheels[2].omega_radps, plant.wheels[3].omega_radps};
+  joint_publisher_->publish(joints);
+}
+
+void FsaiSimulationNode::PublishTrackMarkers() {
+  visualization_msgs::msg::MarkerArray markers;
+  visualization_msgs::msg::Marker clear;
+  clear.header.frame_id = track_.frame_id;
+  clear.action = visualization_msgs::msg::Marker::DELETEALL;
+  markers.markers.push_back(clear);
+  for (const auto &[name, uri] : std::vector<std::pair<std::string, std::string>>{
+      {"official_road", track_.road_mesh_uri}, {"official_terrain", track_.terrain_mesh_uri}}) {
+    if (uri.empty()) { continue; }
+    visualization_msgs::msg::Marker road;
+    road.header.frame_id = track_.frame_id;
+    road.ns = name;
+    road.id = 0;
+    road.type = visualization_msgs::msg::Marker::MESH_RESOURCE;
+    road.action = visualization_msgs::msg::Marker::ADD;
+    road.mesh_resource = uri;
+    road.mesh_use_embedded_materials = true;
+    road.pose.orientation.w = 1.0;
+    road.scale.x = road.scale.y = road.scale.z = 1.0;
+    // Zero color allows the original mesh materials to provide their colors.
+    markers.markers.push_back(road);
+  }
+  for (std::size_t i = 0; i < track_.cones.size(); ++i) {
+    const auto &cone = track_.cones[i];
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = track_.frame_id;
+    marker.ns = "track";
+    marker.id = static_cast<int>(i);
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    marker.pose.position.x = cone.x;
+    marker.pose.position.y = cone.y;
+    marker.pose.orientation.w = 1.0;
+    const auto mesh = track_.cone_mesh_uris.find(cone.color);
+    if (mesh != track_.cone_mesh_uris.end()) {
+      marker.type = visualization_msgs::msg::Marker::MESH_RESOURCE;
+      marker.mesh_resource = mesh->second;
+      marker.mesh_use_embedded_materials = true;
+      marker.scale.x = marker.scale.y = marker.scale.z = 1.0;
+    } else {
+      marker.type = visualization_msgs::msg::Marker::CYLINDER;
+      marker.pose.position.z = 0.15;
+      marker.scale.x = marker.scale.y = 0.22;
+      marker.scale.z = 0.3;
+      marker.color.a = 1.0;
+      if (cone.color == "blue") { marker.color.b = 1.0; }
+      else if (cone.color == "yellow") { marker.color.r = marker.color.g = 1.0; }
+      else if (cone.color == "orange" || cone.color == "big_orange") {
+        marker.color.r = 1.0; marker.color.g = 0.4;
+      } else { marker.color.r = marker.color.g = marker.color.b = 0.5; }
+    }
+    markers.markers.push_back(marker);
+  }
+  track_publisher_->publish(markers);
+  track_markers_published_ = true;
 }
 }  // namespace fsai::sim2_adapter

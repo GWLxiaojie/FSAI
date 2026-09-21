@@ -3,6 +3,22 @@
 The simulator imports the repositories below at the pinned revisions in `simulator/dependencies.lock.yaml`.
 They remain separate source checkouts and are not committed to this repository.
 
+## IMechE FS-AI official visual and track assets
+
+The optional ten-lap scenario fetches data directly from `FS-AI/FS-AI_IMechE_ADS-DV_HiL`
+at revision `1fe77bed411ba621a3187bc2eb9ca13c7d371832`.
+The pinned paths and Git blob hashes are in `simulator/official_assets.lock.json`.
+Original GLB/OBJ/Road/TestRun files and all derived geometry remain under the ignored
+`.dependencies` directory; they are not redistributed with this source repository.
+The official HiL repository does not declare an open-source license for these assets.
+The separate official CAD repository states that its CAD remains Copyright IMechE
+and must not be re-uploaded to other public locations.
+The importer uses the HiL's native visual meshes, not a copy of the full CAD or the
+commercial CarMaker dynamics engine.
+
+- HiL source: https://github.com/FS-AI/FS-AI_IMechE_ADS-DV_HiL/tree/1fe77bed411ba621a3187bc2eb9ca13c7d371832
+- CAD source/use notice: https://github.com/FS-AI/FS-AI_ADS-DV_CAD/blob/958fdbf336fcc6cbd60535c2e7812d51a977d267/README.md
+
 ## EUFS repositories
 
 ### eufs_sim2

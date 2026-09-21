@@ -2,6 +2,7 @@
 #define FSAI_SIM2_ADAPTER__SIMULATION_NODE_HPP_
 
 #include <cstddef>
+#include <array>
 #include <memory>
 #include <optional>
 #include <random>
@@ -19,6 +20,7 @@
 #include <rosgraph_msgs/msg/clock.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <tf2_ros/transform_broadcaster.h>
@@ -47,6 +49,12 @@ class FsaiSimulationNode : public rclcpp::Node {
   void SetupPhysicalInterfaces();
   void PublishPhysicalState();
   void ResetPhysical();
+  void ResetReference();
+  void StepReference();
+  void PublishReferenceStatus();
+  void FinishReference(const std::string &outcome, const std::string &reason);
+  void PublishTrackMarkers();
+  void PublishJointStates();
   bool SelectMission(std::int16_t mission, std::string &reason);
   bool StartDriving(std::string &reason);
   FsaiCoreAdapter &Adapter();
@@ -73,6 +81,20 @@ class FsaiSimulationNode : public rclcpp::Node {
   bool stopped_{false};
   bool shutdown_on_finish_{true};
   bool scripted_run_{false};
+  std::unique_ptr<ReferenceDriver> reference_driver_;
+  ReferenceDriverOutput reference_output_;
+  fsai::sim::SimTime next_reference_update_{};
+  fsai::sim::SimTime reference_started_at_{};
+  fsai::sim::Duration reference_fault_stop_duration_{};
+  double max_abs_cte_m_{};
+  double min_reference_clearance_m_{};
+  std::string reference_outcome_{"ready"};
+  std::string reference_failure_reason_;
+  std::string report_path_;
+  bool report_written_{false};
+  std::array<double, 4> wheel_angles_{};
+  fsai::sim::SimTime last_joint_time_{};
+  bool track_markers_published_{false};
   std::mt19937 camera_rng_;
   std::mt19937 lidar_rng_;
   fsai::sim::SimTime next_cones_{};
@@ -92,6 +114,9 @@ class FsaiSimulationNode : public rclcpp::Node {
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr track_publisher_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr safety_publisher_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr mission_publisher_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr reference_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr reference_marker_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_publisher_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> transform_broadcaster_;
   rclcpp::Subscription<fsai_interfaces::msg::ActuationCommand>::SharedPtr actuation_subscription_;
   rclcpp::Subscription<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr eufs_command_subscription_;

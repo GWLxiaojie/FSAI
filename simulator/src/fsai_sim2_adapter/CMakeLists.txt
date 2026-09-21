@@ -17,6 +17,9 @@ find_package(rclcpp REQUIRED)
 find_package(rosgraph_msgs REQUIRED)
 find_package(vehicle_models REQUIRED)
 find_package(yaml-cpp REQUIRED)
+if(NOT TARGET jsoncpp_lib)
+  find_package(jsoncpp REQUIRED)
+endif()
 set(fsai_ros_dependencies
   ackermann_msgs eufs_msgs geometry_msgs nav_msgs sensor_msgs std_msgs
   std_srvs tf2_ros visualization_msgs
@@ -30,6 +33,8 @@ add_library(${PROJECT_NAME}
   src/fsai_core_adapter.cpp
   src/plugin_registry.cpp
   src/physical_runtime.cpp
+  src/reference_driver.cpp
+  src/reference_runtime.cpp
   src/runtime_config.cpp
   src/simulation_context.cpp
   src/simulation_node.cpp
@@ -52,6 +57,7 @@ ament_target_dependencies(${PROJECT_NAME} PUBLIC
 target_link_libraries(${PROJECT_NAME} PUBLIC
   fsai_sim_core::fsai_sim_core
   yaml-cpp
+  jsoncpp_lib
 )
 target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_INITIALIZE_MATRICES_BY_ZERO)
 
@@ -79,7 +85,7 @@ install(
 )
 
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
-ament_export_dependencies(eufs_sim2 fsai_interfaces fsai_sim_core rclcpp rosgraph_msgs vehicle_models yaml-cpp ${fsai_ros_dependencies})
+ament_export_dependencies(eufs_sim2 fsai_interfaces fsai_sim_core rclcpp rosgraph_msgs vehicle_models yaml-cpp jsoncpp ${fsai_ros_dependencies})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
@@ -112,7 +118,7 @@ if(BUILD_TESTING)
   target_link_libraries(simulation_runner_test
     ${PROJECT_NAME}
   )
-  foreach(test_name fsai_core_adapter_test runtime_config_test simulation_node_test vehicle_profile_loader_test)
+  foreach(test_name fsai_core_adapter_test runtime_config_test simulation_node_test vehicle_profile_loader_test reference_driver_test)
     ament_add_gtest(${test_name} test/${test_name}.cpp)
     target_link_libraries(${test_name} ${PROJECT_NAME})
   endforeach()

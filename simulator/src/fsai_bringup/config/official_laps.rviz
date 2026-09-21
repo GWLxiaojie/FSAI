@@ -6,17 +6,12 @@ Panels:
 Visualization Manager:
   Class: ""
   Global Options:
-    Background Color: 35; 35; 35
+    Background Color: 65; 85; 65
     Fixed Frame: map
     Frame Rate: 30
   Displays:
-    - Class: rviz_default_plugins/Grid
-      Name: Ground grid
-      Enabled: true
-      Cell Size: 1
-      Plane Cell Count: 100
     - Class: rviz_default_plugins/RobotModel
-      Name: Vehicle
+      Name: Official ADS-DV
       Enabled: true
       Description Source: Topic
       Description Topic:
@@ -25,14 +20,8 @@ Visualization Manager:
         Reliability Policy: Reliable
         History Policy: Keep Last
         Depth: 1
-    - Class: rviz_default_plugins/TF
-      Name: Frames
-      Enabled: true
-      Show Arrows: true
-      Show Axes: true
-      Show Names: true
     - Class: rviz_default_plugins/MarkerArray
-      Name: Track cones
+      Name: Official Sprint layout
       Enabled: true
       Topic:
         Value: /ground_truth/track_markers
@@ -40,27 +29,36 @@ Visualization Manager:
         Reliability Policy: Reliable
         History Policy: Keep Last
         Depth: 1
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Lap progress
+      Enabled: true
+      Topic:
+        Value: /sim/reference/markers
+        Reliability Policy: Reliable
+        History Policy: Keep Last
+        Depth: 1
     - Class: rviz_default_plugins/Odometry
-      Name: Ground truth trajectory
+      Name: Reference trace
       Enabled: true
       Topic:
         Value: /ground_truth/odom
         Reliability Policy: Reliable
         History Policy: Keep Last
         Depth: 10
-      Keep: 300
-      Position Tolerance: 0.2
-      Angle Tolerance: 0.1
+      Keep: 150
+      Position Tolerance: 0.5
+      Angle Tolerance: 0.2
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 18
+      Target Frame: base_footprint
+      Distance: 11
       Focal Point:
-        X: 0
-        Y: 6
-        Z: 0
-      Pitch: 1.15
-      Yaw: 0.0
+        X: 1
+        Y: 0
+        Z: 0.3
+      Pitch: 0.65
+      Yaw: 3.8
 Window Geometry:
   Width: 1280
   Height: 800

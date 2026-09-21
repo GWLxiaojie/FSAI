@@ -9,6 +9,7 @@ are modified by this project.
 ```bash
 tools/run_sim.sh --vehicle ads_dv --scenario straight_acceleration
 tools/run_sim.sh --vehicle ads_dv --scenario manual --visualize
+tools/run_official_laps.sh --fast
 ```
 
 `straight_acceleration` and `brake_to_stop` are scripted 20-second regression
@@ -40,6 +41,19 @@ within the same build. External controllers must keep up with simulation time;
 use scripted inputs for reproducible faster-than-realtime experiments. A normal
 completion stops at the exact configured step/time boundary and reports
 FINISHED. This is an experiment completion, not a race/lap adjudication.
+
+`official_ten_laps` is a separate ground-truth reference self-test. Its wrapper
+downloads pinned official assets, supplies the absolute imported track path,
+incrementally builds, and runs ten laps at 2.5 m/s. It starts five simulation
+seconds after READY and ends only after the tenth lap and a sustained stop.
+Footprint clearance, ordered route progress, a 3600 s time limit, and a JSON
+completion report guard the run. The wrapper rejects an incomplete/missing
+report or a failed acceptance threshold. Report files are created exclusively,
+never overwritten. `--fast` disables GUI and changes wall-clock pacing only.
+The default is localhost DDS domain 183 with a per-domain wrapper lock.
+This controller uses true plant state and a known centerline, not perception or
+localization. See [official-ten-laps.md](official-ten-laps.md) for provenance and
+the distinction between reference lap counting and competition adjudication.
 
 ## Safety and commands
 
@@ -82,7 +96,10 @@ conversion parameters and does not model a VCU. Use one command source at a time
 | `/sim/state/mission` | `std_msgs/String`, selected mission or not_selected | Outer step |
 | `/ground_truth/odom` | `nav_msgs/Odometry`, map pose and body-frame twist | Outer step |
 | `/ground_truth/forces` | `eufs_msgs/CarForces`, tyre-frame Fx/Fy and normal Fz in N | Outer step |
-| `/ground_truth/track_markers` | `visualization_msgs/MarkerArray`, stable cone IDs in map | 20 Hz, latched |
+| `/ground_truth/track_markers` | `visualization_msgs/MarkerArray`, stable cone IDs and optional road/terrain meshes in map | Startup/reset, latched |
+| `/joint_states` | `sensor_msgs/JointState`, front steering and four wheel-spin angles | Outer step |
+| `/sim/reference/status` | `std_msgs/String`, JSON progress/error/clearance/status; reference mode only | 50 Hz while driving |
+| `/sim/reference/markers` | `visualization_msgs/MarkerArray`, reference lap/speed text | 50 Hz while driving |
 | `/sensors/imu` | `sensor_msgs/Imu`, rad/s and m/s² | 200 Hz |
 | `/sensors/wheel_speeds` | `eufs_msgs/WheelSpeedsStamped`, **revolutions/s**, steering radians | 100 Hz |
 | `/sensors/oss` | `geometry_msgs/TwistWithCovarianceStamped`, body-frame m/s | 100 Hz |
@@ -125,13 +142,22 @@ input for autonomous acceptance tests.
 
 `visualize:=true` starts `robot_state_publisher` and RViz with the installed
 `config/simulator.rviz`: map, vehicle URDF, TF, cone colors and ground-truth
-trajectory. The URDF is a lightweight chassis visualization, not a vehicle
-collision or suspension model. A graphical Ubuntu session is required; headless
-CI validates launch and message structure but does not replace a visual check.
+trajectory. The ADS-DV wrappers supply a generated URDF referencing the official
+native GLBs, preserving meshes and embedded textures without decimation. Wheel
+rotation and Ackermann steering are animated from plant outputs. Visual wheel
+positions follow the official MovieNX assembly; they do not replace the current
+plant parameters. The explicit `reference_bicycle` test profile retains its
+lightweight URDF. Neither description adds a collision/suspension backend.
+The ten-lap wrapper uses `config/official_laps.rviz` with a following camera,
+official track/cone meshes and lap text. Visual process failure propagates as a
+run failure; closing the window early aborts the experiment. A graphical Ubuntu
+session is required. A local Xvfb/software-GL smoke check confirms official mesh
+and texture loading, but headless CI does not prove graphics-driver compatibility
+on every machine.
 
 This runtime supplies validated resource loading, deterministic scripted
 experiments and safe ROS control. Full RaceDirector/lap rules, cone collision
 adjudication, arbitrary track generation, and a complete
-autonomous one-lap controller remain outside this runtime implementation.
+sensor-based autonomous controller remain outside this runtime implementation.
 MCAP recording is available separately through `tools/record_sim.sh`; it records
 ROS messages, not a serialized plant/sensor snapshot.
